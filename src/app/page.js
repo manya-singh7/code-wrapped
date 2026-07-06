@@ -8,7 +8,7 @@ async function getRepos(accessToken) {
   return res.json();
 }
 
-async function getCommitStats(accessToken, username) {
+async function getCommitStats(accessToken, username, sinceDate) {
   const headers = { Authorization: `Bearer ${accessToken}` };
 
   const reposRes = await fetch(
@@ -36,7 +36,11 @@ async function getCommitStats(accessToken, username) {
     }
   }
 
-  const sortedCommits = allCommits.sort((a, b) => a - b);
+  const filteredCommits = sinceDate
+    ? allCommits.filter((d) => d >= sinceDate)
+    : allCommits;
+
+  const sortedCommits = filteredCommits.sort((a, b) => a - b);
 
   const commitDays = [
     ...new Set(
@@ -116,11 +120,11 @@ async function getCommitStats(accessToken, username) {
 
   const avgCommitsPerActiveDay =
     commitDays.length > 0
-      ? (allCommits.length / commitDays.length).toFixed(1)
+      ? (filteredCommits.length / commitDays.length).toFixed(1)
       : 0;
 
   return {
-    totalCommits: allCommits.length,
+    totalCommits: filteredCommits.length,
     longestStreak,
     currentStreak,
     mostActiveWeekday,
@@ -156,7 +160,10 @@ export default async function Home() {
   }
 
   const repos = await getRepos(session.accessToken);
-  const commitStats = await getCommitStats(session.accessToken, session.user.name);
+  const thirtyDaysAgo = new Date();
+  thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
+
+  const commitStats = await getCommitStats(session.accessToken, session.user.name, thirtyDaysAgo);
 
   const totalRepos = repos.length;
   const totalStars = repos.reduce((sum, r) => sum + r.stargazers_count, 0);
