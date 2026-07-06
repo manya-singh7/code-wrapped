@@ -103,12 +103,31 @@ async function getCommitStats(accessToken, username) {
     (a, b) => b[1] - a[1]
   )[0]?.[0];
 
+  let weekendCommits = 0;
+  let weekdayCommits = 0;
+  sortedCommits.forEach((d) => {
+    const day = d.getDay();
+    if (day === 0 || day === 6) {
+      weekendCommits++;
+    } else {
+      weekdayCommits++;
+    }
+  });
+
+  const avgCommitsPerActiveDay =
+    commitDays.length > 0
+      ? (allCommits.length / commitDays.length).toFixed(1)
+      : 0;
+
   return {
     totalCommits: allCommits.length,
     longestStreak,
     currentStreak,
     mostActiveWeekday,
     mostActiveHour: mostActiveHour ? `${mostActiveHour}:00` : null,
+    weekendCommits,
+    weekdayCommits,
+    avgCommitsPerActiveDay,
   };
 }
 
@@ -195,6 +214,17 @@ export default async function Home() {
         <div className="rounded-2xl border border-zinc-200 p-6 text-center">
           <p className="text-xl font-bold">{commitStats.mostActiveHour || "—"}</p>
           <p className="text-zinc-500">Most Active Hour</p>
+        </div>
+        <div className="rounded-2xl border border-zinc-200 p-6 text-center">
+          <p className="text-3xl font-bold">
+            {commitStats.weekdayCommits} / {commitStats.weekendCommits}
+          </p>
+          <p className="text-zinc-500">Weekday vs Weekend Commits</p>
+        </div>
+
+        <div className="rounded-2xl border border-zinc-200 p-6 text-center">
+          <p className="text-3xl font-bold">{commitStats.avgCommitsPerActiveDay}</p>
+          <p className="text-zinc-500">Avg Commits per Active Day</p>
         </div>
 
         {mostStarred && (
