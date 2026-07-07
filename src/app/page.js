@@ -1,4 +1,5 @@
 import { auth, signIn, signOut } from "@/auth";
+import DateRangePicker from "./DateRangePicker";
 
 async function getRepos(accessToken) {
   const res = await fetch("https://api.github.com/user/repos?per_page=100", {
@@ -8,37 +9,56 @@ async function getRepos(accessToken) {
   return res.json();
 }
 
-async function getCommitStats(accessToken, username, sinceDate) {
+async function getCommitStats(accessToken, username, sinceDate, untilDate) {
   const headers = { Authorization: `Bearer ${accessToken}` };
 
   const reposRes = await fetch(
     "https://api.github.com/user/repos?per_page=100",
     { headers, cache: "no-store" }
   );
-  const repos = await reposRes.json();
-  const ownRepos = repos.filter((r) => !r.fork);
+  const allRepos = await reposRes.json();
+  const ownRepos = allRepos; // check all repos, including forks — commits authored by you will naturally filter correctly
 
-  let allCommits = [];
+  let commitsByRepo = {};
 
   for (const repo of ownRepos.slice(0, 20)) {
     const commitsRes = await fetch(
-      `https://api.github.com/repos/${repo.full_name}/commits?author=${username}&per_page=100`,
+      `https://api.github.com/repos/${repo.full_name}/commits?per_page=100`,
       { headers, cache: "no-store" }
     );
 
     if (commitsRes.ok) {
       const commits = await commitsRes.json();
       if (Array.isArray(commits)) {
-        allCommits = allCommits.concat(
-          commits.map((c) => new Date(c.commit.author.date))
+        const myCommits = commits.filter(
+          (c) => c.author && c.author.login === username
         );
+        if (myCommits.length > 0) {
+          commitsByRepo[repo.name] = myCommits.map(
+            (c) => new Date(c.commit.author.date)
+          );
+        }
       }
     }
   }
 
-  const filteredCommits = sinceDate
-    ? allCommits.filter((d) => d >= sinceDate)
-    : allCommits;
+  let allCommits = Object.values(commitsByRepo).flat();
+
+  const filteredCommits = allCommits.filter((d) => {
+    if (sinceDate && d < sinceDate) return false;
+    if (untilDate && d >= untilDate) return false;
+    return true;
+  });
+
+  const touchedRepos = Object.entries(commitsByRepo)
+    .filter(([repoName, dates]) =>
+      dates.some((d) => {
+        if (sinceDate && d < sinceDate) return false;
+        if (untilDate && d >= untilDate) return false;
+        return true;
+      })
+    )
+    .map(([repoName]) => repoName);
 
   const sortedCommits = filteredCommits.sort((a, b) => a - b);
 
@@ -132,10 +152,13 @@ async function getCommitStats(accessToken, username, sinceDate) {
     weekendCommits,
     weekdayCommits,
     avgCommitsPerActiveDay,
+    touchedRepos,
   };
 }
 
-export default async function Home() {
+export default async function Home({ searchParams }) {
+  const params = await searchParams;
+  const period = params.period || "all";
   const session = await auth();
 
   if (!session) {
@@ -159,21 +182,57 @@ export default async function Home() {
     );
   }
 
-  const repos = await getRepos(session.accessToken);
-  const thirtyDaysAgo = new Date();
-  thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
+  let sinceDate = null;
+  let untilDate = null;
+  const now = new Date();
 
-  const commitStats = await getCommitStats(session.accessToken, session.user.name, thirtyDaysAgo);
+  if (period === "7days") {
+    sinceDate = new Date(now);
+    sinceDate.setDate(sinceDate.getDate() - 7);
+  } else if (period === "30days") {
+    sinceDate = new Date(now);
+    sinceDate.setDate(sinceDate.getDate() - 30);
+  } else if (period === "3months") {
+    sinceDate = new Date(now);
+    sinceDate.setMonth(sinceDate.getMonth() - 3);
+  } else if (period === "6months") {
+    sinceDate = new Date(now);
+    sinceDate.setMonth(sinceDate.getMonth() - 6);
+  } else if (period === "thisyear") {
+    sinceDate = new Date(now.getFullYear(), 0, 1);
+  } else if (period === "lastyear") {
+    sinceDate = new Date(now.getFullYear() - 1, 0, 1);
+    untilDate = new Date(now.getFullYear(), 0, 1);
+  } else if (period === "custom" && params.from) {
+    sinceDate = new Date(params.from);
+    if (params.to) {
+      untilDate = new Date(params.to);
+      untilDate.setDate(untilDate.getDate() + 1);
+    }
+  }
 
-  const totalRepos = repos.length;
-  const totalStars = repos.reduce((sum, r) => sum + r.stargazers_count, 0);
-  const mostStarred = repos.reduce(
+  const commitStats = await getCommitStats(
+    session.accessToken,
+    session.githubLogin,
+    sinceDate,
+    untilDate
+  );
+
+  const allRepos = await getRepos(session.accessToken);
+  const relevantRepos =
+    commitStats.touchedRepos.length > 0
+      ? allRepos.filter((r) => commitStats.touchedRepos.includes(r.name))
+      : [];
+
+  const totalRepos = relevantRepos.length;
+  const totalStars = relevantRepos.reduce((sum, r) => sum + r.stargazers_count, 0);
+  const mostStarred = relevantRepos.reduce(
     (max, r) => (r.stargazers_count > (max?.stargazers_count || 0) ? r : max),
     null
   );
 
   const languageCounts = {};
-  repos.forEach((r) => {
+  relevantRepos.forEach((r) => {
     if (r.language) {
       languageCounts[r.language] = (languageCounts[r.language] || 0) + 1;
     }
@@ -186,6 +245,7 @@ export default async function Home() {
     <div className="flex min-h-screen flex-col items-center justify-center gap-6 px-4 py-12">
       <h1 className="text-4xl font-bold">Code Wrapped 🎁</h1>
       <p>Signed in as {session.user.name}</p>
+      <DateRangePicker />
 
       <div className="grid w-full max-w-2xl grid-cols-1 gap-4 sm:grid-cols-2">
         <div className="rounded-2xl border border-zinc-200 p-6 text-center">
@@ -222,6 +282,7 @@ export default async function Home() {
           <p className="text-xl font-bold">{commitStats.mostActiveHour || "—"}</p>
           <p className="text-zinc-500">Most Active Hour</p>
         </div>
+
         <div className="rounded-2xl border border-zinc-200 p-6 text-center">
           <p className="text-3xl font-bold">
             {commitStats.weekdayCommits} / {commitStats.weekendCommits}
