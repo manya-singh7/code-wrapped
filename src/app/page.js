@@ -1,5 +1,6 @@
 import { auth, signIn, signOut } from "@/auth";
 import DateRangePicker from "./DateRangePicker";
+import WrappedSlides from "./WrappedSlides";
 
 async function getRepos(accessToken) {
   const res = await fetch("https://api.github.com/user/repos?per_page=100", {
@@ -242,92 +243,37 @@ export default async function Home({ searchParams }) {
     .slice(0, 3);
 
   return (
-    <div className="flex min-h-screen flex-col items-center justify-center gap-6 px-4 py-12">
-      <h1 className="text-4xl font-bold">Code Wrapped 🎁</h1>
-      <p>Signed in as {session.user.name}</p>
-      <DateRangePicker />
-
-      <div className="grid w-full max-w-2xl grid-cols-1 gap-4 sm:grid-cols-2">
-        <div className="rounded-2xl border border-zinc-200 p-6 text-center">
-          <p className="text-3xl font-bold">{totalRepos}</p>
-          <p className="text-zinc-500">Total Repositories</p>
-        </div>
-
-        <div className="rounded-2xl border border-zinc-200 p-6 text-center">
-          <p className="text-3xl font-bold">⭐ {totalStars}</p>
-          <p className="text-zinc-500">Total Stars</p>
-        </div>
-
-        <div className="rounded-2xl border border-zinc-200 p-6 text-center">
-          <p className="text-3xl font-bold">{commitStats.totalCommits}</p>
-          <p className="text-zinc-500">Total Commits</p>
-        </div>
-
-        <div className="rounded-2xl border border-zinc-200 p-6 text-center">
-          <p className="text-3xl font-bold">🔥 {commitStats.longestStreak}</p>
-          <p className="text-zinc-500">Longest Streak (days)</p>
-        </div>
-
-        <div className="rounded-2xl border border-zinc-200 p-6 text-center">
-          <p className="text-3xl font-bold">{commitStats.currentStreak}</p>
-          <p className="text-zinc-500">Current Streak (days)</p>
-        </div>
-
-        <div className="rounded-2xl border border-zinc-200 p-6 text-center">
-          <p className="text-xl font-bold">{commitStats.mostActiveWeekday || "—"}</p>
-          <p className="text-zinc-500">Most Active Weekday</p>
-        </div>
-
-        <div className="rounded-2xl border border-zinc-200 p-6 text-center">
-          <p className="text-xl font-bold">{commitStats.mostActiveHour || "—"}</p>
-          <p className="text-zinc-500">Most Active Hour</p>
-        </div>
-
-        <div className="rounded-2xl border border-zinc-200 p-6 text-center">
-          <p className="text-3xl font-bold">
-            {commitStats.weekdayCommits} / {commitStats.weekendCommits}
-          </p>
-          <p className="text-zinc-500">Weekday vs Weekend Commits</p>
-        </div>
-
-        <div className="rounded-2xl border border-zinc-200 p-6 text-center">
-          <p className="text-3xl font-bold">{commitStats.avgCommitsPerActiveDay}</p>
-          <p className="text-zinc-500">Avg Commits per Active Day</p>
-        </div>
-
-        {mostStarred && (
-          <div className="rounded-2xl border border-zinc-200 p-6 text-center">
-            <p className="text-xl font-bold">{mostStarred.name}</p>
-            <p className="text-zinc-500">
-              Most Starred Repo ({mostStarred.stargazers_count} ⭐)
-            </p>
-          </div>
-        )}
-
-        <div className="rounded-2xl border border-zinc-200 p-6 text-center">
-          <p className="font-bold mb-2">Top Languages</p>
-          {topLanguages.length > 0 ? (
-            topLanguages.map(([lang, count]) => (
-              <p key={lang} className="text-zinc-500">
-                {lang}: {count} repo{count > 1 ? "s" : ""}
-              </p>
-            ))
-          ) : (
-            <p className="text-zinc-500">—</p>
-          )}
-        </div>
+    <div>
+      <div className="fixed top-0 left-0 right-0 z-50 flex flex-col items-center gap-2 bg-white/80 backdrop-blur-sm py-3">
+        <p className="text-sm font-medium">Signed in as {session.user.name}</p>
+        <DateRangePicker />
+        <form
+          action={async () => {
+            "use server";
+            await signOut();
+          }}
+        >
+          <button className="rounded-full bg-zinc-800 px-4 py-1.5 text-xs text-white">
+            Sign out
+          </button>
+        </form>
       </div>
 
-      <form
-        action={async () => {
-          "use server";
-          await signOut();
-        }}
-      >
-        <button className="rounded-full bg-zinc-800 px-6 py-3 text-white mt-4">
-          Sign out
-        </button>
-      </form>
-    </div>
+      <WrappedSlides
+        name={session.user.name}
+        totalCommits={commitStats.totalCommits}
+        longestStreak={commitStats.longestStreak}
+        currentStreak={commitStats.currentStreak}
+        mostActiveWeekday={commitStats.mostActiveWeekday}
+        mostActiveHour={commitStats.mostActiveHour}
+        weekdayCommits={commitStats.weekdayCommits}
+        weekendCommits={commitStats.weekendCommits}
+        topLanguages={topLanguages}
+        mostStarred={mostStarred}
+        totalRepos={totalRepos}
+        totalStars={totalStars}
+      />
+
+      </div>
   );
 }
