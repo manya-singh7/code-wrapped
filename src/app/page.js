@@ -241,6 +241,17 @@ export default async function Home({ searchParams }) {
   const topLanguages = Object.entries(languageCounts)
     .sort((a, b) => b[1] - a[1])
     .slice(0, 3);
+  // Rough placeholder percentile until we have real Code Wrapped user data to compare against
+  const streakPercentile = Math.min(
+    99,
+    Math.round((commitStats.longestStreak / 30) * 100)
+  );
+
+  const generatedDate = new Date().toLocaleDateString("en-US", {
+    year: "numeric",
+    month: "long",
+    day: "numeric",
+  });
 
   return (
     <div>
@@ -261,6 +272,7 @@ export default async function Home({ searchParams }) {
 
       <WrappedSlides
         name={session.user.name}
+        avatarUrl={session.user.image}
         totalCommits={commitStats.totalCommits}
         longestStreak={commitStats.longestStreak}
         currentStreak={commitStats.currentStreak}
@@ -272,6 +284,8 @@ export default async function Home({ searchParams }) {
         mostStarred={mostStarred}
         totalRepos={totalRepos}
         totalStars={totalStars}
+        streakPercentile={streakPercentile}
+        generatedDate={generatedDate}
       />
 
       </div>

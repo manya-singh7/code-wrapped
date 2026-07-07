@@ -1,5 +1,7 @@
+import ShareCard from "./ShareCard";
 export default function WrappedSlides({
   name,
+  avatarUrl,
   totalCommits,
   longestStreak,
   currentStreak,
@@ -11,6 +13,8 @@ export default function WrappedSlides({
   mostStarred,
   totalRepos,
   totalStars,
+  streakPercentile,
+  generatedDate,
 }) {
   const slideBase =
     "h-screen w-full flex flex-col items-center justify-center snap-start px-6 text-center";
@@ -95,10 +99,18 @@ export default function WrappedSlides({
         <p className="text-xl mt-2">total stars</p>
       </section>
 
-      {/* Slide 9: Outro */}
-      <section className={`${slideBase} bg-black text-white`}>
-        <p className="text-3xl font-bold mb-4">That's a wrap 🎁</p>
-        <p className="text-zinc-400">Share your Code Wrapped with the world</p>
+      {/* Slide 9: Outro + Share Card */}
+      <section className={`${slideBase} bg-black text-white gap-6`}>
+        <p className="text-3xl font-bold">That's a wrap 🎁</p>
+        <ShareCard
+          username={name}
+          avatarUrl={avatarUrl}
+          totalCommits={totalCommits}
+          longestStreak={longestStreak}
+          streakPercentile={streakPercentile}
+          topLanguage={topLanguages[0]?.[0]}
+          generatedDate={generatedDate}
+        />
       </section>
     </div>
   );
