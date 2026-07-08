@@ -21,6 +21,7 @@ async function getCommitStats(accessToken, username, sinceDate, untilDate) {
   const ownRepos = allRepos; // check all repos, including forks — commits authored by you will naturally filter correctly
 
   let commitsByRepo = {};
+  let linesByDate = [];
 
   for (const repo of ownRepos.slice(0, 20)) {
     const commitsRes = await fetch(
@@ -38,6 +39,22 @@ async function getCommitStats(accessToken, username, sinceDate, untilDate) {
           commitsByRepo[repo.name] = myCommits.map(
             (c) => new Date(c.commit.author.date)
           );
+
+          // Fetch line-change stats for each commit (extra API call per commit)
+          for (const commit of myCommits) {
+            const detailRes = await fetch(
+              `https://api.github.com/repos/${repo.full_name}/commits/${commit.sha}`,
+              { headers, cache: "no-store" }
+            );
+            if (detailRes.ok) {
+              const detail = await detailRes.json();
+              linesByDate.push({
+                date: new Date(commit.commit.author.date),
+                additions: detail.stats?.additions || 0,
+                deletions: detail.stats?.deletions || 0,
+              });
+            }
+          }
         }
       }
     }
@@ -50,6 +67,15 @@ async function getCommitStats(accessToken, username, sinceDate, untilDate) {
     if (untilDate && d >= untilDate) return false;
     return true;
   });
+
+  const filteredLines = linesByDate.filter((entry) => {
+    if (sinceDate && entry.date < sinceDate) return false;
+    if (untilDate && entry.date >= untilDate) return false;
+    return true;
+  });
+
+  const totalAdditions = filteredLines.reduce((sum, e) => sum + e.additions, 0);
+  const totalDeletions = filteredLines.reduce((sum, e) => sum + e.deletions, 0);
 
   const touchedRepos = Object.entries(commitsByRepo)
     .filter(([repoName, dates]) =>
@@ -154,6 +180,8 @@ async function getCommitStats(accessToken, username, sinceDate, untilDate) {
     weekdayCommits,
     avgCommitsPerActiveDay,
     touchedRepos,
+    totalAdditions,
+    totalDeletions,
   };
 }
 
@@ -286,6 +314,8 @@ export default async function Home({ searchParams }) {
         totalStars={totalStars}
         streakPercentile={streakPercentile}
         generatedDate={generatedDate}
+        totalAdditions={commitStats.totalAdditions}
+        totalDeletions={commitStats.totalDeletions}
       />
 
       </div>

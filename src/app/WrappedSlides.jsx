@@ -15,6 +15,8 @@ export default function WrappedSlides({
   totalStars,
   streakPercentile,
   generatedDate,
+  totalAdditions,
+  totalDeletions,
 }) {
   const slideBase =
     "h-screen w-full flex flex-col items-center justify-center snap-start px-6 text-center";
@@ -33,6 +35,14 @@ export default function WrappedSlides({
         <p className="text-xl mb-4">You made</p>
         <p className="text-8xl font-bold">{totalCommits}</p>
         <p className="text-2xl mt-4">commits</p>
+      </section>
+
+      {/* Slide: Lines of Code */}
+      <section className={`${slideBase} bg-cyan-600 text-white`}>
+        <p className="text-xl mb-4">You wrote</p>
+        <p className="text-6xl font-bold text-green-300">+{totalAdditions}</p>
+        <p className="text-6xl font-bold text-red-300 mt-2">-{totalDeletions}</p>
+        <p className="text-xl mt-4">lines of code</p>
       </section>
 
       {/* Slide 3: Longest Streak */}
