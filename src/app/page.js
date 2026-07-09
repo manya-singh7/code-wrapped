@@ -1,6 +1,7 @@
 import { auth, signIn, signOut } from "@/auth";
 import DateRangePicker from "./DateRangePicker";
 import WrappedSlides from "./WrappedSlides";
+import { GoogleGenerativeAI } from "@google/generative-ai";
 
 async function getRepos(accessToken) {
   const res = await fetch("https://api.github.com/user/repos?per_page=100", {
@@ -8,6 +9,30 @@ async function getRepos(accessToken) {
     cache: "no-store",
   });
   return res.json();
+}
+
+async function generateStory(stats) {
+  try {
+    const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
+    const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash" });
+
+    const prompt = `Write a short, warm, 2-3 sentence narrative summary of a developer's coding year based on these stats. Make it feel personal and encouraging, not robotic. Don't use markdown formatting, just plain text.
+
+Stats:
+- Total commits: ${stats.totalCommits}
+- Longest streak: ${stats.longestStreak} days
+- Most active day: ${stats.mostActiveWeekday || "varied"}
+- Top language: ${stats.topLanguage || "varied"}
+- Lines added: ${stats.totalAdditions}
+
+Write the narrative now:`;
+
+    const result = await model.generateContent(prompt);
+    return result.response.text();
+  } catch (error) {
+    console.error("Story generation failed:", error);
+    return "Your coding journey continues, one commit at a time.";
+  }
 }
 
 async function getCommitStats(accessToken, username, sinceDate, untilDate) {
@@ -280,6 +305,13 @@ export default async function Home({ searchParams }) {
     month: "long",
     day: "numeric",
   });
+  const aiStory = await generateStory({
+    totalCommits: commitStats.totalCommits,
+    longestStreak: commitStats.longestStreak,
+    mostActiveWeekday: commitStats.mostActiveWeekday,
+    topLanguage: topLanguages[0]?.[0],
+    totalAdditions: commitStats.totalAdditions,
+  });
 
   return (
     <div>
@@ -316,6 +348,7 @@ export default async function Home({ searchParams }) {
         generatedDate={generatedDate}
         totalAdditions={commitStats.totalAdditions}
         totalDeletions={commitStats.totalDeletions}
+        aiStory={aiStory}
       />
 
       </div>

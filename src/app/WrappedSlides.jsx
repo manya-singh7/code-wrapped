@@ -17,6 +17,7 @@ export default function WrappedSlides({
   generatedDate,
   totalAdditions,
   totalDeletions,
+  aiStory,
 }) {
   const slideBase =
     "h-screen w-full flex flex-col items-center justify-center snap-start px-6 text-center";
@@ -28,6 +29,11 @@ export default function WrappedSlides({
         <h1 className="text-2xl mb-2">Your Code Wrapped</h1>
         <p className="text-5xl font-bold">{name}</p>
         <p className="mt-6 text-zinc-400 text-sm">Scroll to see your year ↓</p>
+      </section>
+
+      {/* Slide: AI Story */}
+      <section className={`${slideBase} bg-gradient-to-br from-purple-700 to-indigo-800 text-white`}>
+        <p className="text-2xl leading-relaxed max-w-lg">{aiStory}</p>
       </section>
 
       {/* Slide 2: Total Commits */}
