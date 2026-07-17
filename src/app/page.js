@@ -14,7 +14,7 @@ async function getRepos(accessToken) {
 async function generateStory(stats) {
   try {
     const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
-    const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash" });
+    const model = genAI.getGenerativeModel({ model: "gemini-3.5-flash" });
 
     const prompt = `Write a short, warm, 2-3 sentence narrative summary of a developer's coding year based on these stats. Make it feel personal and encouraging, not robotic. Don't use markdown formatting, just plain text.
 
