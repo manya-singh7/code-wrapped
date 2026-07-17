@@ -51,6 +51,36 @@ Respond with ONLY the raw JSON object, no markdown code fences, no extra text.`;
   }
 }
 
+function detectCommitPersonality(messages) {
+  if (messages.length === 0) {
+    return { label: "Blank Canvas", description: "No commits yet to analyze." };
+  }
+
+  const lower = messages.map((m) => m.toLowerCase());
+
+  const fixCount = lower.filter((m) => m.includes("fix")).length;
+  const finalCount = lower.filter((m) => m.includes("final")).length;
+  const wipCount = lower.filter((m) => m.includes("wip")).length;
+  const readmeCount = lower.filter((m) => m.includes("readme") || m.includes("docs")).length;
+  const updateCount = lower.filter((m) => m.startsWith("update")).length;
+
+  const total = messages.length;
+  const scores = [
+    { label: "Professional Bug Exorcist", score: fixCount / total, description: "You fix things. Then you fix the fix." },
+    { label: "Version Naming Visionary", score: finalCount / total, description: "final, final2, final_final... a saga." },
+    { label: "Optimistic Starter", score: wipCount / total, description: "Work in progress, forever in progress." },
+    { label: "Documentation Defender", score: (readmeCount + updateCount) / total, description: "Someone has to keep the README alive." },
+  ];
+
+  const top = scores.sort((a, b) => b.score - a.score)[0];
+
+  if (top.score < 0.15) {
+    return { label: "The Balanced Coder", description: "No single obsession — just steady, varied work." };
+  }
+
+  return { label: top.label, description: top.description };
+}
+
 async function getCommitStats(accessToken, username, sinceDate, untilDate) {
   const headers = { Authorization: `Bearer ${accessToken}` };
 
@@ -62,6 +92,7 @@ async function getCommitStats(accessToken, username, sinceDate, untilDate) {
   const ownRepos = allRepos; // check all repos, including forks — commits authored by you will naturally filter correctly
   let commitsByRepo = {};
   let linesByDate = [];
+  let allMessages = [];
 
   for (const repo of ownRepos.slice(0, 20)) {
     const commitsRes = await fetch(
@@ -79,6 +110,10 @@ async function getCommitStats(accessToken, username, sinceDate, untilDate) {
           commitsByRepo[repo.name] = myCommits.map(
             (c) => new Date(c.commit.author.date)
           );
+
+          myCommits.forEach((c) => {
+            allMessages.push(c.commit.message);
+          });
 
           // Fetch line-change stats for each commit (extra API call per commit)
           for (const commit of myCommits) {
@@ -241,6 +276,7 @@ async function getCommitStats(accessToken, username, sinceDate, untilDate) {
     commitDays.length > 0
       ? (filteredCommits.length / commitDays.length).toFixed(1)
       : 0;
+  const commitPersonality = detectCommitPersonality(allMessages);
 
   return {
     totalCommits: filteredCommits.length,
@@ -256,6 +292,7 @@ async function getCommitStats(accessToken, username, sinceDate, untilDate) {
     totalDeletions,
     longestGap,
     forgivingStreak,
+    commitPersonality,
   };
 }
 
@@ -407,6 +444,7 @@ export default async function Home({ searchParams }) {
         archetype={aiContent.archetype}
         longestGap={commitStats.longestGap}
         forgivingStreak={commitStats.forgivingStreak}
+        commitPersonality={commitStats.commitPersonality}
       />
 
       </div>

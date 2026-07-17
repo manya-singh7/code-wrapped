@@ -24,6 +24,7 @@ export default function WrappedSlides({
   archetype,
   longestGap,
   forgivingStreak,
+  commitPersonality,
 }) {
   const slideBase =
     "h-screen w-full flex flex-col items-center justify-center snap-start px-6 text-center";
@@ -46,6 +47,13 @@ export default function WrappedSlides({
       <section className={`${slideBase} bg-slate-800 text-white`}>
         <p className="text-xl mb-4">Your developer archetype</p>
         <p className="text-5xl font-bold">{archetype}</p>
+      </section>
+
+      {/* Slide: Commit Message Personality */}
+      <section className={`${slideBase} bg-fuchsia-700 text-white`}>
+        <p className="text-xl mb-4">Your commit message personality</p>
+        <p className="text-4xl font-bold">{commitPersonality?.label}</p>
+        <p className="mt-4 text-fuchsia-100">{commitPersonality?.description}</p>
       </section>
 
       {/* Slide: AI Roast */}
