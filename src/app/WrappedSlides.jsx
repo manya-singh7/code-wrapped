@@ -1,4 +1,5 @@
 import ShareCard from "./ShareCard";
+import CommitTimelineChart from "./CommitTimelineChart";
 export default function WrappedSlides({
   name,
   avatarUrl,
@@ -25,6 +26,7 @@ export default function WrappedSlides({
   longestGap,
   forgivingStreak,
   commitPersonality,
+  timeline,
 }) {
   const slideBase =
     "h-screen w-full flex flex-col items-center justify-center snap-start px-6 text-center";
@@ -73,6 +75,14 @@ export default function WrappedSlides({
         <p className="text-xl mb-4">You made</p>
         <p className="text-8xl font-bold">{totalCommits}</p>
         <p className="text-2xl mt-4">commits</p>
+      </section>
+
+      {/* Slide: Commit Timeline */}
+      <section className={`${slideBase} bg-zinc-900 text-white`}>
+        <p className="text-xl mb-6">Your activity over time</p>
+        <div className="w-full max-w-lg px-4">
+          <CommitTimelineChart timeline={timeline} />
+        </div>
       </section>
 
       {/* Slide: Lines of Code */}

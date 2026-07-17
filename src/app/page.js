@@ -22,7 +22,7 @@ async function generateAIContent(stats) {
 
   try {
     const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
-    const model = genAI.getGenerativeModel({ model: "gemini-3.5-flash" });
+    const model = genAI.getGenerativeModel({ model: "gemini-3.1-flash-lite" });
 
     const prompt = `Based on these coding stats, generate a JSON object with exactly these 5 fields: "story" (2-3 warm, personal sentences about their coding year, no markdown), "roast" (1-2 savage, witty, playfully brutal sentences roasting a coding habit visible in the stats — think stand-up comedian energy or Chandler from friends energy or anyone funny and cool. Be specific and clever, not generic. And don't drop huge words/terms just to sound cool. Don't sound lame.), "hype" (1-2 sentences, professional LinkedIn-style hype about their achievement), "quote" (one short, memorable, quotable sentence summarizing their year), "archetype" (a 2-4 word developer personality label, like "Night Owl Builder" or "Consistency King", based on the stats).
 
@@ -89,7 +89,7 @@ async function getCommitStats(accessToken, username, sinceDate, untilDate) {
     { headers, cache: "no-store" }
   );
   const allRepos = await reposRes.json();
-  const ownRepos = allRepos; // check all repos, including forks — commits authored by you will naturally filter correctly
+  const ownRepos = allRepos;
   let commitsByRepo = {};
   let linesByDate = [];
   let allMessages = [];
@@ -115,7 +115,6 @@ async function getCommitStats(accessToken, username, sinceDate, untilDate) {
             allMessages.push(c.commit.message);
           });
 
-          // Fetch line-change stats for each commit (extra API call per commit)
           for (const commit of myCommits) {
             const detailRes = await fetch(
               `https://api.github.com/repos/${repo.full_name}/commits/${commit.sha}`,
@@ -175,6 +174,16 @@ async function getCommitStats(accessToken, username, sinceDate, untilDate) {
     ),
   ].sort();
 
+  const commitsByDay = {};
+  sortedCommits.forEach((d) => {
+    const key = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+    commitsByDay[key] = (commitsByDay[key] || 0) + 1;
+  });
+
+  const timeline = Object.entries(commitsByDay)
+    .map(([date, count]) => ({ date, commits: count }))
+    .sort((a, b) => new Date(a.date) - new Date(b.date));
+
   let longestStreak = 0;
   let currentStreak = 0;
   let streak = 1;
@@ -193,7 +202,6 @@ async function getCommitStats(accessToken, username, sinceDate, untilDate) {
   }
   longestStreak = Math.max(longestStreak, streak);
 
-  // Longest gap between active coding days
   let longestGap = 0;
   for (let i = 1; i < commitDays.length; i++) {
     const prev = new Date(commitDays[i - 1]);
@@ -202,7 +210,6 @@ async function getCommitStats(accessToken, username, sinceDate, untilDate) {
     if (gap > longestGap) longestGap = gap;
   }
 
-  // "Almost streak" — longest streak allowing exactly one skipped day
   let forgivingStreak = 0;
   let currentForgiving = 1;
   let skipsUsed = 0;
@@ -276,6 +283,7 @@ async function getCommitStats(accessToken, username, sinceDate, untilDate) {
     commitDays.length > 0
       ? (filteredCommits.length / commitDays.length).toFixed(1)
       : 0;
+
   const commitPersonality = detectCommitPersonality(allMessages);
 
   return {
@@ -293,6 +301,7 @@ async function getCommitStats(accessToken, username, sinceDate, untilDate) {
     longestGap,
     forgivingStreak,
     commitPersonality,
+    timeline,
   };
 }
 
@@ -445,6 +454,7 @@ export default async function Home({ searchParams }) {
         longestGap={commitStats.longestGap}
         forgivingStreak={commitStats.forgivingStreak}
         commitPersonality={commitStats.commitPersonality}
+        timeline={commitStats.timeline}
       />
 
       </div>
