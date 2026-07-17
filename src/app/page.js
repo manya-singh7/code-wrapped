@@ -11,27 +11,43 @@ async function getRepos(accessToken) {
   return res.json();
 }
 
-async function generateStory(stats) {
+async function generateAIContent(stats) {
+  const fallback = {
+    story: "Your coding journey continues, one commit at a time.",
+    roast: "Even robots need more data to roast you properly.",
+    hype: "A developer steadily building their craft.",
+    quote: "Progress, not perfection.",
+    archetype: "The Steady Builder",
+  };
+
   try {
     const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
     const model = genAI.getGenerativeModel({ model: "gemini-3.5-flash" });
 
-    const prompt = `Write a short, warm, 2-3 sentence narrative summary of a developer's coding year based on these stats. Make it feel personal and encouraging, not robotic. Don't use markdown formatting, just plain text.
+    const prompt = `Based on these coding stats, generate a JSON object with exactly these 5 fields: "story" (2-3 warm, personal sentences about their coding year, no markdown), "roast" (1-2 savage, witty, playfully brutal sentences roasting a coding habit visible in the stats — think stand-up comedian energy or Chandler from friends energy or anyone funny and cool. Be specific and clever, not generic. And don't drop huge words/terms just to sound cool. Don't sound lame.), "hype" (1-2 sentences, professional LinkedIn-style hype about their achievement), "quote" (one short, memorable, quotable sentence summarizing their year), "archetype" (a 2-4 word developer personality label, like "Night Owl Builder" or "Consistency King", based on the stats).
 
 Stats:
 - Total commits: ${stats.totalCommits}
 - Longest streak: ${stats.longestStreak} days
 - Most active day: ${stats.mostActiveWeekday || "varied"}
+- Most active hour: ${stats.mostActiveHour || "varied"}
+- Weekday commits: ${stats.weekdayCommits}, Weekend commits: ${stats.weekendCommits}
 - Top language: ${stats.topLanguage || "varied"}
 - Lines added: ${stats.totalAdditions}
 
-Write the narrative now:`;
+Respond with ONLY the raw JSON object, no markdown code fences, no extra text.`;
 
     const result = await model.generateContent(prompt);
-    return result.response.text();
+    let text = result.response.text().trim();
+
+    // Strip markdown code fences if the model adds them anyway
+    text = text.replace(/^```json\s*/i, "").replace(/```\s*$/i, "");
+
+    const parsed = JSON.parse(text);
+    return { ...fallback, ...parsed };
   } catch (error) {
-    console.error("Story generation failed:", error);
-    return "Your coding journey continues, one commit at a time.";
+    console.error("AI content generation failed:", error);
+    return fallback;
   }
 }
 
@@ -44,7 +60,6 @@ async function getCommitStats(accessToken, username, sinceDate, untilDate) {
   );
   const allRepos = await reposRes.json();
   const ownRepos = allRepos; // check all repos, including forks — commits authored by you will naturally filter correctly
-
   let commitsByRepo = {};
   let linesByDate = [];
 
@@ -143,6 +158,38 @@ async function getCommitStats(accessToken, username, sinceDate, untilDate) {
   }
   longestStreak = Math.max(longestStreak, streak);
 
+  // Longest gap between active coding days
+  let longestGap = 0;
+  for (let i = 1; i < commitDays.length; i++) {
+    const prev = new Date(commitDays[i - 1]);
+    const curr = new Date(commitDays[i]);
+    const gap = (curr - prev) / (1000 * 60 * 60 * 24) - 1;
+    if (gap > longestGap) longestGap = gap;
+  }
+
+  // "Almost streak" — longest streak allowing exactly one skipped day
+  let forgivingStreak = 0;
+  let currentForgiving = 1;
+  let skipsUsed = 0;
+
+  for (let i = 1; i < commitDays.length; i++) {
+    const prev = new Date(commitDays[i - 1]);
+    const curr = new Date(commitDays[i]);
+    const diffDays = (curr - prev) / (1000 * 60 * 60 * 24);
+
+    if (diffDays === 1) {
+      currentForgiving++;
+    } else if (diffDays === 2 && skipsUsed === 0) {
+      currentForgiving++;
+      skipsUsed = 1;
+    } else {
+      forgivingStreak = Math.max(forgivingStreak, currentForgiving);
+      currentForgiving = 1;
+      skipsUsed = 0;
+    }
+  }
+  forgivingStreak = Math.max(forgivingStreak, currentForgiving);
+
   if (commitDays.length > 0) {
     const today = new Date().toISOString().split("T")[0];
     const lastCommitDay = commitDays[commitDays.length - 1];
@@ -207,6 +254,8 @@ async function getCommitStats(accessToken, username, sinceDate, untilDate) {
     touchedRepos,
     totalAdditions,
     totalDeletions,
+    longestGap,
+    forgivingStreak,
   };
 }
 
@@ -269,7 +318,7 @@ export default async function Home({ searchParams }) {
     session.accessToken,
     session.githubLogin,
     sinceDate,
-    untilDate
+    untilDate,
   );
 
   const allRepos = await getRepos(session.accessToken);
@@ -305,10 +354,13 @@ export default async function Home({ searchParams }) {
     month: "long",
     day: "numeric",
   });
-  const aiStory = await generateStory({
+  const aiContent = await generateAIContent({
     totalCommits: commitStats.totalCommits,
     longestStreak: commitStats.longestStreak,
     mostActiveWeekday: commitStats.mostActiveWeekday,
+    mostActiveHour: commitStats.mostActiveHour,
+    weekdayCommits: commitStats.weekdayCommits,
+    weekendCommits: commitStats.weekendCommits,
     topLanguage: topLanguages[0]?.[0],
     totalAdditions: commitStats.totalAdditions,
   });
@@ -348,7 +400,13 @@ export default async function Home({ searchParams }) {
         generatedDate={generatedDate}
         totalAdditions={commitStats.totalAdditions}
         totalDeletions={commitStats.totalDeletions}
-        aiStory={aiStory}
+        aiStory={aiContent.story}
+        aiRoast={aiContent.roast}
+        aiHype={aiContent.hype}
+        aiQuote={aiContent.quote}
+        archetype={aiContent.archetype}
+        longestGap={commitStats.longestGap}
+        forgivingStreak={commitStats.forgivingStreak}
       />
 
       </div>

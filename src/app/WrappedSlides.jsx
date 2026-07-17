@@ -18,6 +18,12 @@ export default function WrappedSlides({
   totalAdditions,
   totalDeletions,
   aiStory,
+  aiRoast,
+  aiHype,
+  aiQuote,
+  archetype,
+  longestGap,
+  forgivingStreak,
 }) {
   const slideBase =
     "h-screen w-full flex flex-col items-center justify-center snap-start px-6 text-center";
@@ -36,7 +42,25 @@ export default function WrappedSlides({
         <p className="text-2xl leading-relaxed max-w-lg">{aiStory}</p>
       </section>
 
-      {/* Slide 2: Total Commits */}
+      {/* Slide: Archetype */}
+      <section className={`${slideBase} bg-slate-800 text-white`}>
+        <p className="text-xl mb-4">Your developer archetype</p>
+        <p className="text-5xl font-bold">{archetype}</p>
+      </section>
+
+      {/* Slide: AI Roast */}
+      <section className={`${slideBase} bg-rose-600 text-white`}>
+        <p className="text-sm uppercase tracking-wide mb-4 text-rose-200">A gentle roast</p>
+        <p className="text-2xl leading-relaxed max-w-lg">{aiRoast}</p>
+      </section>
+
+      {/* Slide: AI Hype */}
+      <section className={`${slideBase} bg-amber-500 text-black`}>
+        <p className="text-sm uppercase tracking-wide mb-4">The hype</p>
+        <p className="text-2xl leading-relaxed max-w-lg font-medium">{aiHype}</p>
+      </section>
+
+      {/* Slide: Total Commits */}
       <section className={`${slideBase} bg-indigo-600 text-white`}>
         <p className="text-xl mb-4">You made</p>
         <p className="text-8xl font-bold">{totalCommits}</p>
@@ -56,9 +80,19 @@ export default function WrappedSlides({
         <p className="text-xl mb-4">Your longest streak was</p>
         <p className="text-8xl font-bold">🔥 {longestStreak}</p>
         <p className="text-2xl mt-4">days in a row</p>
+        {forgivingStreak > longestStreak && (
+          <p className="mt-6 text-sm text-orange-100 max-w-xs">
+            Skip just one day, and it could've been a {forgivingStreak}-day streak
+          </p>
+        )}
+        {longestGap > 0 && (
+          <p className="mt-2 text-sm text-orange-100 max-w-xs">
+            Longest break: {longestGap} day{longestGap > 1 ? "s" : ""}
+          </p>
+        )}
       </section>
 
-      {/* Slide 4: Active Day/Hour */}
+      {/* Slide : Active Day/Hour */}
       <section className={`${slideBase} bg-teal-600 text-white`}>
         <p className="text-xl mb-4">You're most active on</p>
         <p className="text-6xl font-bold">{mostActiveWeekday || "—"}</p>
@@ -66,7 +100,7 @@ export default function WrappedSlides({
         <p className="text-6xl font-bold mt-2">{mostActiveHour || "—"}</p>
       </section>
 
-      {/* Slide 5: Weekday vs Weekend */}
+      {/* Slide : Weekday vs Weekend */}
       <section className={`${slideBase} bg-pink-600 text-white`}>
         <p className="text-xl mb-4">Weekday vs Weekend</p>
         <p className="text-6xl font-bold">
@@ -79,7 +113,7 @@ export default function WrappedSlides({
         </p>
       </section>
 
-      {/* Slide 6: Top Languages */}
+      {/* Slide : Top Languages */}
       <section className={`${slideBase} bg-emerald-600 text-white`}>
         <p className="text-xl mb-6">Your top languages</p>
         {topLanguages.length > 0 ? (
@@ -93,7 +127,7 @@ export default function WrappedSlides({
         )}
       </section>
 
-      {/* Slide 7: Most Starred Repo */}
+      {/* Slide : Most Starred Repo */}
       <section className={`${slideBase} bg-yellow-500 text-black`}>
         <p className="text-xl mb-4">Your top repo</p>
         {mostStarred ? (
@@ -106,7 +140,7 @@ export default function WrappedSlides({
         )}
       </section>
 
-      {/* Slide 8: Totals */}
+      {/* Slide : Totals */}
       <section className={`${slideBase} bg-violet-600 text-white`}>
         <p className="text-xl mb-4">Overall</p>
         <p className="text-6xl font-bold">{totalRepos}</p>
@@ -118,6 +152,7 @@ export default function WrappedSlides({
       {/* Slide 9: Outro + Share Card */}
       <section className={`${slideBase} bg-black text-white gap-6`}>
         <p className="text-3xl font-bold">That's a wrap 🎁</p>
+        <p className="text-lg italic text-zinc-300 max-w-md">"{aiQuote}"</p>
         <ShareCard
           username={name}
           avatarUrl={avatarUrl}
