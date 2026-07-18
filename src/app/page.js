@@ -3,30 +3,43 @@ import DateRangePicker from "./DateRangePicker";
 import WrappedSlides from "./WrappedSlides";
 import { GoogleGenerativeAI } from "@google/generative-ai";
 import { supabase } from "./supabaseClient";
+import TimezoneDetector from "./TimezoneDetector";
 
   // Parses an ISO date string like "2026-07-06T14:30:00+05:30"
 // and returns date/time components in the ORIGINAL commit's timezone,
 // not the server's local timezone.
 const IST_OFFSET_MINUTES = 5 * 60 + 30; // IST is UTC+5:30
 
-function parseCommitDate(isoString) {
+function parseCommitDate(isoString, timezone) {
   const utcDate = new Date(isoString);
   if (isNaN(utcDate.getTime())) return null;
 
-  // Shift by IST offset to get the commit's local (IST) date/time
-  const istDate = new Date(utcDate.getTime() + IST_OFFSET_MINUTES * 60000);
+  const formatter = new Intl.DateTimeFormat("en-CA", {
+    timeZone: timezone,
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+    hour: "2-digit",
+    minute: "2-digit",
+    hour12: false,
+  });
 
-  const year = istDate.getUTCFullYear();
-  const month = istDate.getUTCMonth() + 1;
-  const day = istDate.getUTCDate();
+  const parts = formatter.formatToParts(utcDate);
+  const get = (type) => parts.find((p) => p.type === type)?.value;
+
+  const year = parseInt(get("year"));
+  const month = parseInt(get("month"));
+  const day = parseInt(get("day"));
+  const hour = parseInt(get("hour"));
+  const minute = parseInt(get("minute"));
 
   return {
     year,
     month,
     day,
-    hour: istDate.getUTCHours(),
-    minute: istDate.getUTCMinutes(),
-    dateKey: `${year}-${String(month).padStart(2, "0")}-${String(day).padStart(2, "0")}`,
+    hour,
+    minute,
+    dateKey: `${get("year")}-${get("month")}-${get("day")}`,
     weekday: new Date(Date.UTC(year, month - 1, day)).toLocaleDateString("en-US", { weekday: "long", timeZone: "UTC" }),
     utcDateForCompare: new Date(Date.UTC(year, month - 1, day)),
   };
@@ -158,7 +171,7 @@ function detectCommitPersonality(messages) {
   return { label: top.label, description: top.description };
 }
 
-async function getCommitStats(accessToken, username, sinceDate, untilDate) {
+async function getCommitStats(accessToken, username, sinceDate, untilDate, timezone) {
   const headers = { Authorization: `Bearer ${accessToken}` };
 
   const reposRes = await fetch(
@@ -186,7 +199,7 @@ async function getCommitStats(accessToken, username, sinceDate, untilDate) {
 
         if (myCommits.length > 0) {
           commitsByRepo[repo.name] = myCommits.map((c) =>
-            parseCommitDate(c.commit.author.date)
+            parseCommitDate(c.commit.author.date, timezone)
           ).filter(Boolean);
 
           myCommits.forEach((c) => {
@@ -200,7 +213,7 @@ async function getCommitStats(accessToken, username, sinceDate, untilDate) {
             );
             if (detailRes.ok) {
               const detail = await detailRes.json();
-              const parsed = parseCommitDate(commit.commit.author.date);
+              const parsed = parseCommitDate(commit.commit.author.date, timezone);
               if (parsed) {
                 linesByDate.push({
                   parsed,
@@ -380,6 +393,7 @@ let forgivingStreak = 0;
 export default async function Home({ searchParams }) {
   const params = await searchParams;
   const period = params.period || "all";
+  const userTimezone = params.tz || "Asia/Kolkata"; // fallback to IST if not yet detected
   const session = await auth();
 
   if (!session) {
@@ -437,6 +451,7 @@ export default async function Home({ searchParams }) {
     session.githubLogin,
     sinceDate,
     untilDate,
+    userTimezone
   );
 
   const allRepos = await getRepos(session.accessToken);
@@ -490,6 +505,7 @@ export default async function Home({ searchParams }) {
 
   return (
     <div>
+      <TimezoneDetector />
       <div className="fixed top-0 left-0 right-0 z-50 flex flex-col items-center gap-2 bg-white/80 backdrop-blur-sm py-3">
         <p className="text-sm font-medium">Signed in as {session.user.name}</p>
         <DateRangePicker />
