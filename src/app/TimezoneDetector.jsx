@@ -1,20 +1,21 @@
 "use client";
 
 import { useEffect } from "react";
-import { useRouter, useSearchParams } from "next/navigation";
+import { useRouter } from "next/navigation";
 
 export default function TimezoneDetector() {
   const router = useRouter();
-  const searchParams = useSearchParams();
 
   useEffect(() => {
-    const existingTz = searchParams.get("tz");
     const detectedTz = Intl.DateTimeFormat().resolvedOptions().timeZone;
+    const existingTz = document.cookie
+      .split("; ")
+      .find((row) => row.startsWith("tz="))
+      ?.split("=")[1];
 
-    if (!existingTz || existingTz !== detectedTz) {
-      const params = new URLSearchParams(searchParams);
-      params.set("tz", detectedTz);
-      router.replace(`?${params.toString()}`);
+    if (existingTz !== detectedTz) {
+      document.cookie = `tz=${detectedTz}; path=/; max-age=31536000`;
+      router.refresh();
     }
   }, []);
 

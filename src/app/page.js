@@ -4,6 +4,7 @@ import WrappedSlides from "./WrappedSlides";
 import { GoogleGenerativeAI } from "@google/generative-ai";
 import { supabase } from "./supabaseClient";
 import TimezoneDetector from "./TimezoneDetector";
+import { cookies } from "next/headers";
 
   // Parses an ISO date string like "2026-07-06T14:30:00+05:30"
 // and returns date/time components in the ORIGINAL commit's timezone,
@@ -393,7 +394,8 @@ let forgivingStreak = 0;
 export default async function Home({ searchParams }) {
   const params = await searchParams;
   const period = params.period || "all";
-  const userTimezone = params.tz || "Asia/Kolkata"; // fallback to IST if not yet detected
+  const cookieStore = await cookies();
+  const userTimezone = cookieStore.get("tz")?.value || "Asia/Kolkata";
   const session = await auth();
 
   if (!session) {
