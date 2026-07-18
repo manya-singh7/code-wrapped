@@ -2,6 +2,7 @@ import ShareCard from "./ShareCard";
 import CommitTimelineChart from "./CommitTimelineChart";
 import CollaborationChart from "./CollaborationChart";
 import PRTimelineChart from "./PRTimelineChart";
+
 export default function WrappedSlides({
   name,
   avatarUrl,
@@ -36,6 +37,8 @@ export default function WrappedSlides({
   otherRepoPRs,
   prTimeline,
   contributorsToYourRepos,
+  totalIssues,
+  totalContributions
 }) {
   const slideBase =
     "h-screen w-full flex flex-col items-center justify-center snap-start px-6 text-center";
@@ -183,8 +186,12 @@ export default function WrappedSlides({
 
       {/* Slide: Collaboration Breakdown */}
       <section className={`${slideBase} bg-indigo-900 text-white`}>
-        <p className="text-xl mb-2">Your Collaboration</p>
-        <p className="text-3xl font-bold mb-1">{totalPRs} PRs opened · {mergedPRs} merged</p>
+        <p className="text-xl mb-1">Total Contributions</p>
+        <p className="text-5xl font-bold mb-2">{totalContributions}</p>
+        <p className="text-sm text-indigo-200 mb-6">
+          {totalCommits} commits · {totalPRs} PRs · {totalIssues} issues
+        </p>
+        <p className="text-lg mb-1">{mergedPRs} PRs merged</p>
         <p className="text-lg text-indigo-200 mb-6">{contributorsToYourRepos?.length || 0} people contributed to your work</p>
         <div className="w-full max-w-sm">
           <CollaborationChart

@@ -109,6 +109,29 @@ async function getPullRequestStats(accessToken, username, sinceDate, untilDate) 
   };
 }
 
+async function getIssueStats(accessToken, username, sinceDate, untilDate) {
+  const headers = { Authorization: `Bearer ${accessToken}` };
+  const url = `https://api.github.com/search/issues?q=author:${username}+type:issue&per_page=100`;
+
+  const res = await fetch(url, { headers, cache: "no-store" });
+
+  if (!res.ok) {
+    return { totalIssues: 0 };
+  }
+
+  const data = await res.json();
+  const issues = data.items || [];
+
+  const filteredIssues = issues.filter((issue) => {
+    const createdDate = new Date(issue.created_at);
+    if (sinceDate && createdDate < sinceDate) return false;
+    if (untilDate && createdDate >= untilDate) return false;
+    return true;
+  });
+
+  return { totalIssues: filteredIssues.length };
+}
+
 async function generateAIContent(stats, username, period, commitPersonality) {
   const fallback = {
     story: "Your coding journey continues, one commit at a time.",
@@ -532,6 +555,16 @@ export default async function Home({ searchParams }) {
     untilDate
   );
 
+  const issueStats = await getIssueStats(
+    session.accessToken,
+    session.githubLogin,
+    sinceDate,
+    untilDate
+  );
+
+  const totalContributions =
+    commitStats.totalCommits + prStats.totalPRs + issueStats.totalIssues;
+
   const allRepos = await getRepos(session.accessToken);
   const relevantRepos =
     commitStats.touchedRepos.length > 0
@@ -633,6 +666,8 @@ export default async function Home({ searchParams }) {
         otherRepoPRs={prStats.otherRepoPRs}
         prTimeline={prStats.timeline}
         contributorsToYourRepos={commitStats.contributorsToYourRepos}
+        totalIssues={issueStats.totalIssues}
+        totalContributions={totalContributions}
       />
 
       </div>
