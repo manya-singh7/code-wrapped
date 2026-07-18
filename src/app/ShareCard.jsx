@@ -3,10 +3,12 @@ export default function ShareCard({
   avatarUrl,
   totalCommits,
   longestStreak,
-  streakPercentile,
   topLanguage,
   generatedDate,
-}) {
+  totalPRs,
+  mergedPRs,
+  contributorCount,
+})  {
   return (
     <div className="w-[400px] rounded-3xl bg-gradient-to-br from-indigo-600 to-violet-700 p-8 text-white shadow-2xl">
       <div className="flex items-center gap-3">
@@ -41,6 +43,17 @@ export default function ShareCard({
         <div>
           <p className="text-indigo-200">Top Language</p>
           <p className="font-bold">{topLanguage || "—"}</p>
+        </div>
+      </div>
+
+      <div className="mt-4 flex justify-between text-sm">
+        <div>
+          <p className="text-indigo-200">PRs Merged</p>
+          <p className="font-bold">{mergedPRs || 0}</p>
+        </div>
+        <div>
+          <p className="text-indigo-200">Collaborators</p>
+          <p className="font-bold">{contributorCount || 0}</p>
         </div>
       </div>
 

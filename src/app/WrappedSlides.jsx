@@ -1,5 +1,7 @@
 import ShareCard from "./ShareCard";
 import CommitTimelineChart from "./CommitTimelineChart";
+import CollaborationChart from "./CollaborationChart";
+import PRTimelineChart from "./PRTimelineChart";
 export default function WrappedSlides({
   name,
   avatarUrl,
@@ -28,6 +30,12 @@ export default function WrappedSlides({
   commitPersonality,
   timeline,
   forgivingSkippedDate,
+  totalPRs,
+  mergedPRs,
+  ownRepoPRs,
+  otherRepoPRs,
+  prTimeline,
+  contributorsToYourRepos,
 }) {
   const slideBase =
     "h-screen w-full flex flex-col items-center justify-center snap-start px-6 text-center";
@@ -173,6 +181,28 @@ export default function WrappedSlides({
         <p className="text-xl mt-2">total stars</p>
       </section>
 
+      {/* Slide: Collaboration Breakdown */}
+      <section className={`${slideBase} bg-indigo-900 text-white`}>
+        <p className="text-xl mb-2">Your Collaboration</p>
+        <p className="text-3xl font-bold mb-1">{totalPRs} PRs opened · {mergedPRs} merged</p>
+        <p className="text-lg text-indigo-200 mb-6">{contributorsToYourRepos?.length || 0} people contributed to your work</p>
+        <div className="w-full max-w-sm">
+          <CollaborationChart
+            ownRepoPRs={ownRepoPRs}
+            otherRepoPRs={otherRepoPRs}
+            incomingCount={contributorsToYourRepos?.length || 0}
+          />
+        </div>
+      </section>
+
+      {/* Slide: PR Timeline */}
+      <section className={`${slideBase} bg-purple-900 text-white`}>
+        <p className="text-xl mb-6">Your collaboration over time</p>
+        <div className="w-full max-w-lg px-4">
+          <PRTimelineChart timeline={prTimeline} />
+        </div>
+      </section>
+
       {/* Slide 9: Outro + Share Card */}
       <section className={`${slideBase} bg-black text-white gap-6`}>
         <p className="text-3xl font-bold">That's a wrap 🎁</p>
@@ -185,6 +215,9 @@ export default function WrappedSlides({
           streakPercentile={streakPercentile}
           topLanguage={topLanguages[0]?.[0]}
           generatedDate={generatedDate}
+          totalPRs={totalPRs}
+          mergedPRs={mergedPRs}
+          contributorCount={contributorsToYourRepos?.length || 0}
         />
       </section>
     </div>

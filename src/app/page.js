@@ -54,6 +54,61 @@ async function getRepos(accessToken) {
   return res.json();
 }
 
+async function getPullRequestStats(accessToken, username, sinceDate, untilDate) {
+  const headers = { Authorization: `Bearer ${accessToken}` };
+  const url = `https://api.github.com/search/issues?q=author:${username}+type:pr&per_page=100`;
+
+  const res = await fetch(url, { headers, cache: "no-store" });
+
+  if (!res.ok) {
+    return { totalPRs: 0, mergedPRs: 0, ownRepoPRs: 0, otherRepoPRs: 0, timeline: [] };
+  }
+
+  const data = await res.json();
+  const prs = data.items || [];
+
+  const filteredPRs = prs.filter((pr) => {
+    const createdDate = new Date(pr.created_at);
+    if (sinceDate && createdDate < sinceDate) return false;
+    if (untilDate && createdDate >= untilDate) return false;
+    return true;
+  });
+
+  let ownRepoPRs = 0;
+  let otherRepoPRs = 0;
+  let mergedPRs = 0;
+  const prsByDay = {};
+
+  filteredPRs.forEach((pr) => {
+    const repoOwner = pr.repository_url.split("/").slice(-2, -1)[0];
+    if (repoOwner.toLowerCase() === username.toLowerCase()) {
+      ownRepoPRs++;
+    } else {
+      otherRepoPRs++;
+    }
+
+    if (pr.pull_request?.merged_at) {
+      mergedPRs++;
+    }
+
+    const date = new Date(pr.created_at);
+    const key = `${date.getUTCFullYear()}-${String(date.getUTCMonth() + 1).padStart(2, "0")}-${String(date.getUTCDate()).padStart(2, "0")}`;
+    prsByDay[key] = (prsByDay[key] || 0) + 1;
+  });
+
+  const timeline = Object.entries(prsByDay)
+    .map(([date, count]) => ({ date, prs: count }))
+    .sort((a, b) => new Date(a.date) - new Date(b.date));
+
+  return {
+    totalPRs: filteredPRs.length,
+    mergedPRs,
+    ownRepoPRs,
+    otherRepoPRs,
+    timeline,
+  };
+}
+
 async function generateAIContent(stats, username, period, commitPersonality) {
   const fallback = {
     story: "Your coding journey continues, one commit at a time.",
@@ -184,8 +239,10 @@ async function getCommitStats(accessToken, username, sinceDate, untilDate, timez
   let commitsByRepo = {};
   let linesByDate = [];
   let allMessages = [];
+  let contributorsToYourRepos = new Set();
 
   for (const repo of ownRepos.slice(0, 20)) {
+    const isMyOwnOriginalRepo = !repo.fork;
     const commitsRes = await fetch(
       `https://api.github.com/repos/${repo.full_name}/commits?per_page=100`,
       { headers, cache: "no-store" }
@@ -197,6 +254,17 @@ async function getCommitStats(accessToken, username, sinceDate, untilDate, timez
         const myCommits = commits.filter(
           (c) => c.author && c.author.login === username
         );
+
+        if (isMyOwnOriginalRepo) {
+          const othersCommits = commits.filter(
+            (c) => c.author && c.author.login !== username
+          );
+          if (othersCommits.length > 0) {
+            othersCommits.forEach((c) => {
+              contributorsToYourRepos.add(c.author.login);
+            });
+          }
+        }
 
         if (myCommits.length > 0) {
           commitsByRepo[repo.name] = myCommits.map((c) =>
@@ -388,6 +456,7 @@ let forgivingStreak = 0;
     commitPersonality,
     timeline,
     forgivingSkippedDate,
+    contributorsToYourRepos: Array.from(contributorsToYourRepos),
   };
 }
 
@@ -454,6 +523,13 @@ export default async function Home({ searchParams }) {
     sinceDate,
     untilDate,
     userTimezone
+  );
+
+  const prStats = await getPullRequestStats(
+    session.accessToken,
+    session.githubLogin,
+    sinceDate,
+    untilDate
   );
 
   const allRepos = await getRepos(session.accessToken);
@@ -551,6 +627,12 @@ export default async function Home({ searchParams }) {
         forgivingSkippedDate={commitStats.forgivingSkippedDate}
         commitPersonality={commitStats.commitPersonality}
         timeline={commitStats.timeline}
+        totalPRs={prStats.totalPRs}
+        mergedPRs={prStats.mergedPRs}
+        ownRepoPRs={prStats.ownRepoPRs}
+        otherRepoPRs={prStats.otherRepoPRs}
+        prTimeline={prStats.timeline}
+        contributorsToYourRepos={commitStats.contributorsToYourRepos}
       />
 
       </div>
