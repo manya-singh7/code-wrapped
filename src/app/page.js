@@ -619,6 +619,9 @@ export default async function Home({ searchParams }) {
       <TimezoneDetector />
       <div className="fixed top-0 left-0 right-0 z-50 flex flex-col items-center gap-2 bg-white/80 backdrop-blur-sm py-3">
         <p className="text-sm font-medium">Signed in as {session.user.name}</p>
+        <a href="/compare" className="text-xs underline text-zinc-500">
+          Compare with a friend →
+        </a>
         <DateRangePicker />
         <form
           action={async () => {
