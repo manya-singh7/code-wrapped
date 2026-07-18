@@ -27,6 +27,7 @@ export default function WrappedSlides({
   forgivingStreak,
   commitPersonality,
   timeline,
+  forgivingSkippedDate,
 }) {
   const slideBase =
     "h-screen w-full flex flex-col items-center justify-center snap-start px-6 text-center";
@@ -98,9 +99,14 @@ export default function WrappedSlides({
         <p className="text-xl mb-4">Your longest streak was</p>
         <p className="text-8xl font-bold">🔥 {longestStreak}</p>
         <p className="text-2xl mt-4">days in a row</p>
-        {forgivingStreak > longestStreak && (
+        {forgivingStreak > longestStreak && forgivingSkippedDate && (
           <p className="mt-6 text-sm text-orange-100 max-w-xs">
-            Skip just one day, and it could've been a {forgivingStreak}-day streak
+            If you hadn't skipped{" "}
+            {new Date(forgivingSkippedDate).toLocaleDateString("en-US", {
+              month: "long",
+              day: "numeric",
+            })}
+            , you'd have had a {forgivingStreak}-day streak
           </p>
         )}
         {longestGap > 0 && (

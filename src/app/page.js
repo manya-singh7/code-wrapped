@@ -274,8 +274,10 @@ async function getCommitStats(accessToken, username, sinceDate, untilDate) {
     if (gap > longestGap) longestGap = gap;
   }
 
-  let forgivingStreak = 0;
+let forgivingStreak = 0;
+  let forgivingSkippedDate = null;
   let currentForgiving = 1;
+  let currentSkippedDate = null;
   let skipsUsed = 0;
 
   for (let i = 1; i < commitDays.length; i++) {
@@ -286,15 +288,25 @@ async function getCommitStats(accessToken, username, sinceDate, untilDate) {
     if (diffDays === 1) {
       currentForgiving++;
     } else if (diffDays === 2 && skipsUsed === 0) {
-      currentForgiving++;
+      currentForgiving += 2;
       skipsUsed = 1;
+      const skipped = new Date(prev);
+      skipped.setDate(skipped.getDate() + 1);
+      currentSkippedDate = skipped.toISOString().split("T")[0];
     } else {
-      forgivingStreak = Math.max(forgivingStreak, currentForgiving);
+      if (currentForgiving > forgivingStreak) {
+        forgivingStreak = currentForgiving;
+        forgivingSkippedDate = currentSkippedDate;
+      }
       currentForgiving = 1;
+      currentSkippedDate = null;
       skipsUsed = 0;
     }
   }
-  forgivingStreak = Math.max(forgivingStreak, currentForgiving);
+  if (currentForgiving > forgivingStreak) {
+    forgivingStreak = currentForgiving;
+    forgivingSkippedDate = currentSkippedDate;
+  }
 
   if (commitDays.length > 0) {
     const today = new Date().toISOString().split("T")[0];
@@ -361,6 +373,7 @@ async function getCommitStats(accessToken, username, sinceDate, untilDate) {
     forgivingStreak,
     commitPersonality,
     timeline,
+    forgivingSkippedDate,
   };
 }
 
@@ -517,6 +530,7 @@ export default async function Home({ searchParams }) {
         archetype={aiContent.archetype}
         longestGap={commitStats.longestGap}
         forgivingStreak={commitStats.forgivingStreak}
+        forgivingSkippedDate={commitStats.forgivingSkippedDate}
         commitPersonality={commitStats.commitPersonality}
         timeline={commitStats.timeline}
       />
