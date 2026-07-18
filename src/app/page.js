@@ -4,6 +4,34 @@ import WrappedSlides from "./WrappedSlides";
 import { GoogleGenerativeAI } from "@google/generative-ai";
 import { supabase } from "./supabaseClient";
 
+  // Parses an ISO date string like "2026-07-06T14:30:00+05:30"
+// and returns date/time components in the ORIGINAL commit's timezone,
+// not the server's local timezone.
+const IST_OFFSET_MINUTES = 5 * 60 + 30; // IST is UTC+5:30
+
+function parseCommitDate(isoString) {
+  const utcDate = new Date(isoString);
+  if (isNaN(utcDate.getTime())) return null;
+
+  // Shift by IST offset to get the commit's local (IST) date/time
+  const istDate = new Date(utcDate.getTime() + IST_OFFSET_MINUTES * 60000);
+
+  const year = istDate.getUTCFullYear();
+  const month = istDate.getUTCMonth() + 1;
+  const day = istDate.getUTCDate();
+
+  return {
+    year,
+    month,
+    day,
+    hour: istDate.getUTCHours(),
+    minute: istDate.getUTCMinutes(),
+    dateKey: `${year}-${String(month).padStart(2, "0")}-${String(day).padStart(2, "0")}`,
+    weekday: new Date(Date.UTC(year, month - 1, day)).toLocaleDateString("en-US", { weekday: "long", timeZone: "UTC" }),
+    utcDateForCompare: new Date(Date.UTC(year, month - 1, day)),
+  };
+}
+
 async function getRepos(accessToken) {
   const res = await fetch("https://api.github.com/user/repos?per_page=100", {
     headers: { Authorization: `Bearer ${accessToken}` },
@@ -155,10 +183,11 @@ async function getCommitStats(accessToken, username, sinceDate, untilDate) {
         const myCommits = commits.filter(
           (c) => c.author && c.author.login === username
         );
+
         if (myCommits.length > 0) {
-          commitsByRepo[repo.name] = myCommits.map(
-            (c) => new Date(c.commit.author.date)
-          );
+          commitsByRepo[repo.name] = myCommits.map((c) =>
+            parseCommitDate(c.commit.author.date)
+          ).filter(Boolean);
 
           myCommits.forEach((c) => {
             allMessages.push(c.commit.message);
@@ -171,11 +200,14 @@ async function getCommitStats(accessToken, username, sinceDate, untilDate) {
             );
             if (detailRes.ok) {
               const detail = await detailRes.json();
-              linesByDate.push({
-                date: new Date(commit.commit.author.date),
-                additions: detail.stats?.additions || 0,
-                deletions: detail.stats?.deletions || 0,
-              });
+              const parsed = parseCommitDate(commit.commit.author.date);
+              if (parsed) {
+                linesByDate.push({
+                  parsed,
+                  additions: detail.stats?.additions || 0,
+                  deletions: detail.stats?.deletions || 0,
+                });
+              }
             }
           }
         }
@@ -185,48 +217,31 @@ async function getCommitStats(accessToken, username, sinceDate, untilDate) {
 
   let allCommits = Object.values(commitsByRepo).flat();
 
-  const filteredCommits = allCommits.filter((d) => {
-    if (sinceDate && d < sinceDate) return false;
-    if (untilDate && d >= untilDate) return false;
+  const inRange = (parsed) => {
+    if (sinceDate && parsed.utcDateForCompare < sinceDate) return false;
+    if (untilDate && parsed.utcDateForCompare >= untilDate) return false;
     return true;
-  });
+  };
 
-  const filteredLines = linesByDate.filter((entry) => {
-    if (sinceDate && entry.date < sinceDate) return false;
-    if (untilDate && entry.date >= untilDate) return false;
-    return true;
-  });
+  const filteredCommits = allCommits.filter(inRange);
+  const filteredLines = linesByDate.filter((entry) => inRange(entry.parsed));
 
   const totalAdditions = filteredLines.reduce((sum, e) => sum + e.additions, 0);
   const totalDeletions = filteredLines.reduce((sum, e) => sum + e.deletions, 0);
 
   const touchedRepos = Object.entries(commitsByRepo)
-    .filter(([repoName, dates]) =>
-      dates.some((d) => {
-        if (sinceDate && d < sinceDate) return false;
-        if (untilDate && d >= untilDate) return false;
-        return true;
-      })
-    )
+    .filter(([repoName, parsedDates]) => parsedDates.some(inRange))
     .map(([repoName]) => repoName);
 
-  const sortedCommits = filteredCommits.sort((a, b) => a - b);
+  const sortedCommits = filteredCommits.sort(
+    (a, b) => a.utcDateForCompare - b.utcDateForCompare
+  );
 
-  const commitDays = [
-    ...new Set(
-      sortedCommits.map((d) => {
-        const year = d.getFullYear();
-        const month = String(d.getMonth() + 1).padStart(2, "0");
-        const day = String(d.getDate()).padStart(2, "0");
-        return `${year}-${month}-${day}`;
-      })
-    ),
-  ].sort();
+  const commitDays = [...new Set(sortedCommits.map((p) => p.dateKey))].sort();
 
   const commitsByDay = {};
-  sortedCommits.forEach((d) => {
-    const key = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
-    commitsByDay[key] = (commitsByDay[key] || 0) + 1;
+  sortedCommits.forEach((p) => {
+    commitsByDay[p.dateKey] = (commitsByDay[p.dateKey] || 0) + 1;
   });
 
   const timeline = Object.entries(commitsByDay)
@@ -300,18 +315,16 @@ async function getCommitStats(accessToken, username, sinceDate, untilDate) {
   }
 
   const weekdayCounts = {};
-  sortedCommits.forEach((d) => {
-    const day = d.toLocaleDateString("en-US", { weekday: "long" });
-    weekdayCounts[day] = (weekdayCounts[day] || 0) + 1;
+  sortedCommits.forEach((p) => {
+    weekdayCounts[p.weekday] = (weekdayCounts[p.weekday] || 0) + 1;
   });
   const mostActiveWeekday = Object.entries(weekdayCounts).sort(
     (a, b) => b[1] - a[1]
   )[0]?.[0];
 
   const hourCounts = {};
-  sortedCommits.forEach((d) => {
-    const hour = d.getHours();
-    hourCounts[hour] = (hourCounts[hour] || 0) + 1;
+  sortedCommits.forEach((p) => {
+    hourCounts[p.hour] = (hourCounts[p.hour] || 0) + 1;
   });
   const mostActiveHour = Object.entries(hourCounts).sort(
     (a, b) => b[1] - a[1]
@@ -319,13 +332,10 @@ async function getCommitStats(accessToken, username, sinceDate, untilDate) {
 
   let weekendCommits = 0;
   let weekdayCommits = 0;
-  sortedCommits.forEach((d) => {
-    const day = d.getDay();
-    if (day === 0 || day === 6) {
-      weekendCommits++;
-    } else {
-      weekdayCommits++;
-    }
+  sortedCommits.forEach((p) => {
+    const isWeekend = p.weekday === "Saturday" || p.weekday === "Sunday";
+    if (isWeekend) weekendCommits++;
+    else weekdayCommits++;
   });
 
   const avgCommitsPerActiveDay =
@@ -340,7 +350,7 @@ async function getCommitStats(accessToken, username, sinceDate, untilDate) {
     longestStreak,
     currentStreak,
     mostActiveWeekday,
-    mostActiveHour: mostActiveHour ? `${mostActiveHour}:00` : null,
+    mostActiveHour: mostActiveHour !== undefined ? `${mostActiveHour}:00` : null,
     weekendCommits,
     weekdayCommits,
     avgCommitsPerActiveDay,
