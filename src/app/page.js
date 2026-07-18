@@ -2,6 +2,7 @@ import { auth, signIn, signOut } from "@/auth";
 import DateRangePicker from "./DateRangePicker";
 import WrappedSlides from "./WrappedSlides";
 import { GoogleGenerativeAI } from "@google/generative-ai";
+import { supabase } from "./supabaseClient";
 
 async function getRepos(accessToken) {
   const res = await fetch("https://api.github.com/user/repos?per_page=100", {
@@ -11,7 +12,7 @@ async function getRepos(accessToken) {
   return res.json();
 }
 
-async function generateAIContent(stats) {
+async function generateAIContent(stats, username, period, commitPersonality) {
   const fallback = {
     story: "Your coding journey continues, one commit at a time.",
     roast: "Even robots need more data to roast you properly.",
@@ -20,6 +21,34 @@ async function generateAIContent(stats) {
     archetype: "The Steady Builder",
   };
 
+  // 1. Check cache first — but only trust it if commit count still matches
+  const { data: cached } = await supabase
+    .from("wrapped_cache")
+    .select("*")
+    .eq("github_username", username)
+    .eq("period", period)
+    .maybeSingle();
+
+  if (cached && cached.commit_count_snapshot === stats.totalCommits) {
+    return {
+      story: cached.ai_story,
+      roast: cached.ai_roast,
+      hype: cached.ai_hype,
+      quote: cached.ai_quote,
+      archetype: cached.archetype,
+    };
+  }
+
+  // If stale (commit count changed) or doesn't exist, delete old entry first
+  if (cached) {
+    await supabase
+      .from("wrapped_cache")
+      .delete()
+      .eq("github_username", username)
+      .eq("period", period);
+  }
+  
+  // 2. Not cached — generate fresh
   try {
     const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
     const model = genAI.getGenerativeModel({ model: "gemini-3.1-flash-lite" });
@@ -39,12 +68,32 @@ Respond with ONLY the raw JSON object, no markdown code fences, no extra text.`;
 
     const result = await model.generateContent(prompt);
     let text = result.response.text().trim();
-
-    // Strip markdown code fences if the model adds them anyway
     text = text.replace(/^```json\s*/i, "").replace(/```\s*$/i, "");
 
     const parsed = JSON.parse(text);
-    return { ...fallback, ...parsed };
+    const content = { ...fallback, ...parsed };
+
+    // 3. Save to cache for next time
+    // 3. Save to cache for next time
+    const { error: insertError } = await supabase.from("wrapped_cache").insert({
+      github_username: username,
+      period: period,
+      ai_story: content.story,
+      ai_roast: content.roast,
+      ai_hype: content.hype,
+      ai_quote: content.quote,
+      archetype: content.archetype,
+      commit_personality: commitPersonality,
+      commit_count_snapshot: stats.totalCommits,
+    });
+
+    if (insertError) {
+      console.error("Supabase insert failed:", insertError);
+    } else {
+      console.log("Supabase insert succeeded for", username, period);
+    }
+
+    return content;
   } catch (error) {
     console.error("AI content generation failed:", error);
     return fallback;
@@ -400,16 +449,21 @@ export default async function Home({ searchParams }) {
     month: "long",
     day: "numeric",
   });
-  const aiContent = await generateAIContent({
-    totalCommits: commitStats.totalCommits,
-    longestStreak: commitStats.longestStreak,
-    mostActiveWeekday: commitStats.mostActiveWeekday,
-    mostActiveHour: commitStats.mostActiveHour,
-    weekdayCommits: commitStats.weekdayCommits,
-    weekendCommits: commitStats.weekendCommits,
-    topLanguage: topLanguages[0]?.[0],
-    totalAdditions: commitStats.totalAdditions,
-  });
+  const aiContent = await generateAIContent(
+    {
+      totalCommits: commitStats.totalCommits,
+      longestStreak: commitStats.longestStreak,
+      mostActiveWeekday: commitStats.mostActiveWeekday,
+      mostActiveHour: commitStats.mostActiveHour,
+      weekdayCommits: commitStats.weekdayCommits,
+      weekendCommits: commitStats.weekendCommits,
+      topLanguage: topLanguages[0]?.[0],
+      totalAdditions: commitStats.totalAdditions,
+    },
+    session.githubLogin,
+    period,
+    commitStats.commitPersonality
+  );
 
   return (
     <div>
