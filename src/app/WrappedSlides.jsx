@@ -2,6 +2,7 @@ import ShareCard from "./ShareCard";
 import CommitTimelineChart from "./CommitTimelineChart";
 import CollaborationChart from "./CollaborationChart";
 import PRTimelineChart from "./PRTimelineChart";
+import DataDisclaimer from "./DataDisclaimer";
 
 export default function WrappedSlides({
   name,
@@ -50,6 +51,9 @@ export default function WrappedSlides({
         <h1 className="text-2xl mb-2">Your Code Wrapped</h1>
         <p className="text-5xl font-bold">{name}</p>
         <p className="mt-6 text-zinc-400 text-sm">Scroll to see your year ↓</p>
+        <div className="mt-8">
+          <DataDisclaimer />
+        </div>
       </section>
 
       {/* Slide: AI Story */}

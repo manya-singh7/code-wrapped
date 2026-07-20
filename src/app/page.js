@@ -5,6 +5,7 @@ import { GoogleGenerativeAI } from "@google/generative-ai";
 import { supabase } from "./supabaseClient";
 import TimezoneDetector from "./TimezoneDetector";
 import { cookies } from "next/headers";
+import DataDisclaimer from "./DataDisclaimer";
 
   // Parses an ISO date string like "2026-07-06T14:30:00+05:30"
 // and returns date/time components in the ORIGINAL commit's timezone,
@@ -264,7 +265,7 @@ async function getCommitStats(accessToken, username, sinceDate, untilDate, timez
   let allMessages = [];
   let contributorsToYourRepos = new Set();
 
-  for (const repo of ownRepos.slice(0, 20)) {
+  for (const repo of ownRepos.slice(0, 40)) {
     const isMyOwnOriginalRepo = !repo.fork;
     const commitsRes = await fetch(
       `https://api.github.com/repos/${repo.full_name}/commits?per_page=100`,
@@ -298,23 +299,49 @@ async function getCommitStats(accessToken, username, sinceDate, untilDate, timez
             allMessages.push(c.commit.message);
           });
 
-          for (const commit of myCommits) {
-            const detailRes = await fetch(
-              `https://api.github.com/repos/${repo.full_name}/commits/${commit.sha}`,
-              { headers, cache: "no-store" }
-            );
-            if (detailRes.ok) {
-              const detail = await detailRes.json();
-              const parsed = parseCommitDate(commit.commit.author.date, timezone);
-              if (parsed) {
-                linesByDate.push({
-                  parsed,
-                  additions: detail.stats?.additions || 0,
-                  deletions: detail.stats?.deletions || 0,
-                });
-              }
-            }
-          }
+          const EXCLUDED_FILE_PATTERNS = [
+  /package-lock\.json$/,
+  /yarn\.lock$/,
+  /pnpm-lock\.yaml$/,
+  /\.min\.js$/,
+  /\.min\.css$/,
+  /node_modules\//,
+  /dist\//,
+  /build\//,
+];
+
+for (const commit of myCommits) {
+  const detailRes = await fetch(
+    `https://api.github.com/repos/${repo.full_name}/commits/${commit.sha}`,
+    { headers, cache: "no-store" }
+  );
+  if (detailRes.ok) {
+    const detail = await detailRes.json();
+    const parsed = parseCommitDate(commit.commit.author.date, timezone);
+    if (parsed) {
+      const files = detail.files || [];
+      let realAdditions = 0;
+      let realDeletions = 0;
+
+      files.forEach((file) => {
+        const isExcluded = EXCLUDED_FILE_PATTERNS.some((pattern) =>
+          pattern.test(file.filename)
+        );
+        if (!isExcluded) {
+          realAdditions += file.additions || 0;
+          realDeletions += file.deletions || 0;
+        }
+      });
+
+      linesByDate.push({
+        parsed,
+        additions: realAdditions,
+        deletions: realDeletions,
+      });
+    }
+  }
+}
+
         }
       }
     }

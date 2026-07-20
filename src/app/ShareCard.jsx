@@ -58,7 +58,7 @@ export default function ShareCard({
       </div>
 
       <div className="mt-8 border-t border-white/20 pt-3 text-[10px] text-indigo-200">
-        ✅ Verified via GitHub • Generated {generatedDate}
+        ✅ Based on public GitHub activity • Generated {generatedDate}
       </div>
 
       <p className="mt-2 text-center text-xs text-indigo-200">

@@ -1,6 +1,18 @@
 import { auth } from "@/auth";
 import CompareForm from "./CompareForm";
 import { cookies } from "next/headers";
+import DataDisclaimer from "../DataDisclaimer";
+
+const EXCLUDED_FILE_PATTERNS = [
+  /package-lock\.json$/,
+  /yarn\.lock$/,
+  /pnpm-lock\.yaml$/,
+  /\.min\.js$/,
+  /\.min\.css$/,
+  /node_modules\//,
+  /dist\//,
+  /build\//,
+];
 
 function parseCommitDateSimple(isoString, timezone) {
   const utcDate = new Date(isoString);
@@ -61,7 +73,15 @@ async function getPublicStats(username, timezone, accessToken) {
           );
           if (detailRes.ok) {
             const detail = await detailRes.json();
-            totalAdditions += detail.stats?.additions || 0;
+            const files = detail.files || [];
+            files.forEach((file) => {
+              const isExcluded = EXCLUDED_FILE_PATTERNS.some((pattern) =>
+                pattern.test(file.filename)
+              );
+              if (!isExcluded) {
+                totalAdditions += file.additions || 0;
+              }
+            });
           }
         }
       }
@@ -150,6 +170,8 @@ export default async function ComparePage({ searchParams }) {
 
       <CompareForm />
 
+      <DataDisclaimer />
+
       {myStats && friendStats && (
         <div className="w-full max-w-xl mt-8">
           <div className="grid grid-cols-3 items-center gap-2 text-center mb-2">
@@ -161,7 +183,7 @@ export default async function ComparePage({ searchParams }) {
           {[
             { label: "Commits", a: myStats.totalCommits, b: friendStats.totalCommits },
             { label: "Lines Added", a: myStats.totalAdditions, b: friendStats.totalAdditions },
-            { label: "Longest Streak", a: myStats.longestStreak, b: friendStats.longestStreak },
+            { label: "Longest Commit Streak", a: myStats.longestStreak, b: friendStats.longestStreak },
             { label: "PRs Merged", a: myStats.mergedPRs, b: friendStats.mergedPRs },
             { label: "Issues Opened", a: myStats.totalIssues, b: friendStats.totalIssues },
             { label: "Stars", a: myStats.totalStars, b: friendStats.totalStars },
