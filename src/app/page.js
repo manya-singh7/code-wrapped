@@ -10,7 +10,6 @@ import DataDisclaimer from "./DataDisclaimer";
   // Parses an ISO date string like "2026-07-06T14:30:00+05:30"
 // and returns date/time components in the ORIGINAL commit's timezone,
 // not the server's local timezone.
-const IST_OFFSET_MINUTES = 5 * 60 + 30; // IST is UTC+5:30
 
 function parseCommitDate(isoString, timezone) {
   const utcDate = new Date(isoString);
@@ -206,6 +205,21 @@ Respond with ONLY the raw JSON object, no markdown code fences, no extra text.`;
       archetype: content.archetype,
       commit_personality: commitPersonality,
       commit_count_snapshot: stats.totalCommits,
+      total_commits: stats.totalCommits,
+      longest_streak: stats.longestStreak,
+      total_prs: stats.totalPRs,
+      merged_prs: stats.mergedPRs,
+      total_stars: stats.totalStars,
+      top_language: stats.topLanguage,
+      avatar_url: stats.avatarUrl,
+      most_active_weekday: stats.mostActiveWeekday,
+      most_active_hour: stats.mostActiveHour,
+      total_additions: stats.totalAdditions,
+      total_deletions: stats.totalDeletions,
+      total_repos: stats.totalRepos,
+      contributors_count: stats.contributorsCount,
+      most_starred_repo: stats.mostStarredRepo,
+      is_public: true,
     });
 
     if (insertError) {
@@ -635,6 +649,13 @@ export default async function Home({ searchParams }) {
       weekendCommits: commitStats.weekendCommits,
       topLanguage: topLanguages[0]?.[0],
       totalAdditions: commitStats.totalAdditions,
+      totalPRs: prStats.totalPRs,
+      mergedPRs: prStats.mergedPRs,
+      totalStars: totalStars,
+      avatarUrl: session.user.image,
+      totalRepos: totalRepos,
+      contributorsCount: commitStats.contributorsToYourRepos?.length || 0,
+      mostStarredRepo: mostStarred?.name || null,
     },
     session.githubLogin,
     period,
@@ -648,6 +669,9 @@ export default async function Home({ searchParams }) {
         <p className="text-sm font-medium">Signed in as {session.user.name}</p>
         <a href="/compare" className="text-xs underline text-zinc-500">
           Compare with a friend →
+        </a>
+        <a href={`/u/${session.githubLogin}`} className="text-xs underline text-zinc-500">
+          View your public profile →
         </a>
         <DateRangePicker />
         <form
