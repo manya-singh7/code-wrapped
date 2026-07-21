@@ -4,7 +4,7 @@ import WrappedSlides from "../../WrappedSlides";
 export default async function PublicProfile({ params }) {
   const { username } = await params;
 
-  const { data: cached } = await supabase
+  const { data: cached, error: queryError } = await supabase
     .from("wrapped_cache")
     .select("*")
     .eq("github_username", username)
@@ -36,17 +36,17 @@ export default async function PublicProfile({ params }) {
       totalCommits={cached.total_commits}
       longestStreak={cached.longest_streak}
       currentStreak={0}
-      mostActiveWeekday={null}
-      mostActiveHour={null}
-      weekdayCommits={0}
+      mostActiveWeekday={cached.most_active_weekday}
+      mostActiveHour={cached.most_active_hour}
+      weekdayCommits={cached.total_commits}
       weekendCommits={0}
       topLanguages={cached.top_language ? [[cached.top_language, 1]] : []}
-      mostStarred={null}
-      totalRepos={0}
+      mostStarred={cached.most_starred_repo ? { name: cached.most_starred_repo, stargazers_count: cached.total_stars } : null}
+      totalRepos={cached.total_repos}
       totalStars={cached.total_stars}
       generatedDate={generatedDate}
-      totalAdditions={0}
-      totalDeletions={0}
+      totalAdditions={cached.total_additions}
+      totalDeletions={cached.total_deletions}
       aiStory={cached.ai_story}
       aiRoast={cached.ai_roast}
       aiHype={cached.ai_hype}
@@ -62,7 +62,17 @@ export default async function PublicProfile({ params }) {
       ownRepoPRs={0}
       otherRepoPRs={0}
       prTimeline={[]}
-      contributorsToYourRepos={[]}
+      contributorsToYourRepos={Array(cached.contributors_count || 0).fill("").map((_, i) => `contributor ${i + 1}`)}
+      totalIssues={0}
+      totalContributions={cached.total_commits + cached.total_prs + (cached.total_issues || 0)}
+      weekdayCommits={cached.weekday_commits || 0}
+      weekendCommits={cached.weekend_commits || 0}
+      topLanguages={cached.top_languages || []}
+      totalIssues={cached.total_issues || 0}
+      timeline={cached.commit_timeline || []}
+      prTimeline={cached.pr_timeline || []}
+      ownRepoPRs={cached.own_repo_prs || 0}
+      otherRepoPRs={cached.other_repo_prs || 0}
     />
   );
 }
