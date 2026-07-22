@@ -7,6 +7,7 @@ import DataDisclaimer from "./DataDisclaimer";
 export default function WrappedSlides({
   name,
   avatarUrl,
+  chapters,
   totalCommits,
   longestStreak,
   currentStreak,
@@ -59,6 +60,20 @@ export default function WrappedSlides({
       {/* Slide: AI Story */}
       <section className={`${slideBase} bg-gradient-to-br from-purple-700 to-indigo-800 text-white`}>
         <p className="text-2xl leading-relaxed max-w-lg">{aiStory}</p>
+      </section>
+
+      {/* Slide: Coding Chapters */}
+      <section className={`${slideBase} bg-gradient-to-br from-emerald-800 to-teal-900 text-white`}>
+        <p className="text-xl mb-6">Your Year in Chapters</p>
+        <div className="flex flex-col gap-4 w-full max-w-md">
+          {chapters && chapters.map((chapter, i) => (
+            <div key={i} className="rounded-xl bg-white/10 p-4 text-left">
+              <p className="text-lg font-bold">{chapter.title}</p>
+              <p className="text-sm text-emerald-200 mb-1">{chapter.description}</p>
+              <p className="text-xs text-emerald-300">{chapter.start} → {chapter.end} · {chapter.commits} commits</p>
+            </div>
+          ))}
+        </div>
       </section>
 
       {/* Slide: Archetype */}

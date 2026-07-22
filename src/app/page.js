@@ -247,6 +247,56 @@ Respond with ONLY the raw JSON object, no markdown code fences, no extra text.`;
   }
 }
 
+async function generateChapters(chapters, username, period) {
+  if (chapters.length === 0) return [];
+
+  const { data: cached } = await supabase
+    .from("chapters_cache")
+    .select("*")
+    .eq("github_username", username)
+    .eq("period", period)
+    .maybeSingle();
+
+  if (cached) {
+    return cached.chapters;
+  }
+
+  try {
+    const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
+    const model = genAI.getGenerativeModel({ model: "gemini-3.1-flash-lite" });
+
+    const chapterDescriptions = chapters
+      .map((c, i) => `Chapter ${i + 1}: ${c.start} to ${c.end}, ${c.commits} commits`)
+      .join("\n");
+
+    const prompt = `Given these coding activity chapters for a developer's year, give each one a short, evocative 2-3 word title (like "Learning Era", "Builder Sprint", "Grind Mode", "Open Source Dive") and a single encouraging sentence describing that period. Respond with ONLY a JSON array like [{"title": "...", "description": "..."}], one object per chapter, in order, no markdown fences.
+
+${chapterDescriptions}`;
+
+    const result = await model.generateContent(prompt);
+    let text = result.response.text().trim();
+    text = text.replace(/^```json\s*/i, "").replace(/```\s*$/i, "");
+    const titles = JSON.parse(text);
+
+    const finalChapters = chapters.map((c, i) => ({
+      ...c,
+      title: titles[i]?.title || `Chapter ${i + 1}`,
+      description: titles[i]?.description || "",
+    }));
+
+    await supabase.from("chapters_cache").insert({
+      github_username: username,
+      period: period,
+      chapters: finalChapters,
+    });
+
+    return finalChapters;
+  } catch (error) {
+    console.error("Chapter generation failed:", error);
+    return chapters.map((c, i) => ({ ...c, title: `Chapter ${i + 1}`, description: "" }));
+  }
+}
+
 function detectCommitPersonality(messages) {
   if (messages.length === 0) {
     return { label: "Blank Canvas", description: "No commits yet to analyze." };
@@ -275,6 +325,39 @@ function detectCommitPersonality(messages) {
   }
 
   return { label: top.label, description: top.description };
+}
+
+function detectChapters(timeline) {
+  if (!timeline || timeline.length === 0) return [];
+
+  const sorted = [...timeline].sort((a, b) => new Date(a.date) - new Date(b.date));
+  const totalDays = sorted.length;
+
+  if (totalDays < 4) {
+    return [
+      {
+        start: sorted[0]?.date,
+        end: sorted[sorted.length - 1]?.date,
+        commits: sorted.reduce((sum, d) => sum + d.commits, 0),
+      },
+    ];
+  }
+
+  const chunkCount = totalDays > 60 ? 4 : totalDays > 20 ? 3 : 2;
+  const chunkSize = Math.ceil(totalDays / chunkCount);
+  const chapters = [];
+
+  for (let i = 0; i < totalDays; i += chunkSize) {
+    const chunk = sorted.slice(i, i + chunkSize);
+    if (chunk.length === 0) continue;
+    chapters.push({
+      start: chunk[0].date,
+      end: chunk[chunk.length - 1].date,
+      commits: chunk.reduce((sum, d) => sum + d.commits, 0),
+    });
+  }
+
+  return chapters;
 }
 
 async function getCommitStats(accessToken, username, sinceDate, untilDate, timezone) {
@@ -684,6 +767,9 @@ export default async function Home({ searchParams }) {
     commitStats.commitPersonality
   );
 
+  const chapters = detectChapters(commitStats.timeline);
+  const namedChapters = await generateChapters(chapters, session.githubLogin, period);
+
   return (
     <div>
       <TimezoneDetector />
@@ -744,6 +830,7 @@ export default async function Home({ searchParams }) {
         contributorsToYourRepos={commitStats.contributorsToYourRepos}
         totalIssues={issueStats.totalIssues}
         totalContributions={totalContributions}
+        chapters={namedChapters}
       />
 
       </div>
