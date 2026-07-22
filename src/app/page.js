@@ -646,9 +646,15 @@ async function getContributorLocations(contributorUsernames, accessToken) {
       });
       if (res.ok) {
         const user = await res.json();
-        console.log(`DEBUG profile for ${username}:`, { type: user.type, location: user.location });
         if (user.location) {
           locations.push({ username, location: user.location });
+        } else if (user.bio) {
+          console.log(`DEBUG trying bio extraction for ${username}:`, user.bio);
+          const extractedLocation = await extractLocationFromBio(user.bio);
+          console.log(`DEBUG bio extraction result for ${username}:`, extractedLocation);
+          if (extractedLocation) {
+            locations.push({ username, location: extractedLocation, fromBio: true });
+          }
         }
       } else {
         console.log(`DEBUG profile fetch failed for ${username}:`, res.status);
@@ -659,6 +665,27 @@ async function getContributorLocations(contributorUsernames, accessToken) {
   }
 
   return locations;
+}
+
+async function extractLocationFromBio(bio) {
+  if (!bio) return null;
+
+  try {
+    const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
+    const model = genAI.getGenerativeModel({ model: "gemini-3.1-flash-lite" });
+
+    const prompt = `Does this bio mention a real, specific geographic location (a city, state, or country)? If it mentions an institution or company name (like a university), infer the CITY that institution is actually located in, not the institution's name itself. Respond with ONLY a real city and country as plain text (e.g., "Patna, India"), suitable for looking up on a map. If no location can be confidently determined, respond with exactly: NONE
+
+Bio: "${bio}"`;
+
+    const result = await model.generateContent(prompt);
+    const text = result.response.text().trim();
+
+    if (text === "NONE" || text.length > 60) return null;
+    return text;
+  } catch (error) {
+    return null;
+  }
 }
 
 async function geocodeLocations(locations) {
@@ -672,6 +699,7 @@ async function geocodeLocations(locations) {
       );
       if (res.ok) {
         const results = await res.json();
+        console.log(`DEBUG geocode results for "${loc.location}":`, results.length, results[0]?.display_name);
         if (results.length > 0) {
           geocoded.push({
             username: loc.username,
@@ -808,7 +836,7 @@ export default async function Home({ searchParams }) {
       outgoingOwners.push(repo.owner.login);
     }
   }
-  
+
   const outgoingLocations = await getContributorLocations(outgoingOwners, session.accessToken);
   const geocodedOutgoing = await geocodeLocations(outgoingLocations);
   const taggedOutgoing = geocodedOutgoing.map((loc) => ({ ...loc, direction: "outgoing" }));
