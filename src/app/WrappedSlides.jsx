@@ -40,7 +40,8 @@ export default function WrappedSlides({
   prTimeline,
   contributorsToYourRepos,
   totalIssues,
-  totalContributions
+  totalContributions,
+  topRepos,
 }) {
   const slideBase =
     "h-screen w-full flex flex-col items-center justify-center snap-start px-6 text-center";
@@ -181,14 +182,42 @@ export default function WrappedSlides({
         )}
       </section>
 
-      {/* Slide : Most Starred Repo */}
+      {/* Slide : Repo Hall of Fame */}
       <section className={`${slideBase} bg-yellow-500 text-black`}>
-        <p className="text-xl mb-4">Your top repo</p>
-        {mostStarred ? (
-          <>
-            <p className="text-5xl font-bold">{mostStarred.name}</p>
-            <p className="text-2xl mt-4">⭐ {mostStarred.stargazers_count} stars</p>
-          </>
+        <p className="text-xl mb-6">Repo Hall of Fame</p>
+        {topRepos && topRepos.length > 0 ? (
+          <div className="flex items-end gap-4 justify-center">
+            {topRepos[1] && (
+              <div className="flex flex-col items-center w-24">
+                <div className="bg-black/10 rounded-t-xl px-2 pt-4 pb-2 h-24 w-full flex flex-col justify-end items-center text-center">
+                  <p className="text-xs font-bold break-words leading-tight">{topRepos[1].name}</p>
+                  <p className="text-xs mt-1">⭐ {topRepos[1].stargazers_count}</p>
+                  <p className="text-xs">{topRepos[1].repoCommitCount} commits</p>
+                </div>
+                <div className="bg-black/20 w-full text-center py-1 rounded-b-sm font-bold">2</div>
+              </div>
+            )}
+            {topRepos[0] && (
+              <div className="flex flex-col items-center w-24">
+                <div className="bg-black/10 rounded-t-xl px-2 pt-4 pb-2 h-32 w-full flex flex-col justify-end items-center text-center">
+                  <p className="text-xs font-bold break-words leading-tight">{topRepos[0].name}</p>
+                  <p className="text-xs mt-1">⭐ {topRepos[0].stargazers_count}</p>
+                  <p className="text-xs">{topRepos[0].repoCommitCount} commits</p>
+                </div>
+                <div className="bg-black/20 w-full text-center py-1 rounded-b-sm font-bold">1</div>
+              </div>
+            )}
+            {topRepos[2] && (
+              <div className="flex flex-col items-center w-24">
+                <div className="bg-black/10 rounded-t-xl px-2 pt-4 pb-2 h-16 w-full flex flex-col justify-end items-center text-center">
+                  <p className="text-xs font-bold break-words leading-tight">{topRepos[2].name}</p>
+                  <p className="text-xs mt-1">⭐ {topRepos[2].stargazers_count}</p>
+                  <p className="text-xs">{topRepos[2].repoCommitCount} commits</p>
+                </div>
+                <div className="bg-black/20 w-full text-center py-1 rounded-b-sm font-bold">3</div>
+              </div>
+            )}
+          </div>
         ) : (
           <p className="text-2xl">Nothing starred yet</p>
         )}

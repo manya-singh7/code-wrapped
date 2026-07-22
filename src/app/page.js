@@ -718,6 +718,32 @@ export default async function Home({ searchParams }) {
     (max, r) => (r.stargazers_count > (max?.stargazers_count || 0) ? r : max),
     null
   );
+  const maxStars = Math.max(...relevantRepos.map((r) => r.stargazers_count), 1);
+  const repoCommitCounts = {};
+  Object.entries(commitStats.commitsByRepo || {}).forEach(([repoName, dates]) => {
+    repoCommitCounts[repoName] = dates.length;
+  });
+  const maxCommitsInRepo = Math.max(...Object.values(repoCommitCounts), 1);
+  console.log("DEBUG repoCommitCounts:", repoCommitCounts);
+
+  const scoredRepos = relevantRepos.map((r) => {
+    const starScore = (r.stargazers_count / maxStars) * 40;
+    const commitScore = ((repoCommitCounts[r.name] || 0) / maxCommitsInRepo) * 35;
+    const hasCollaborators = commitStats.contributorsToYourRepos?.length > 0 && !r.fork;
+    const collabScore = hasCollaborators ? 25 : 0;
+
+    return {
+      ...r,
+      hallOfFameScore: starScore + commitScore + collabScore,
+      repoCommitCount: repoCommitCounts[r.name] || 0,
+    };
+  });
+
+  const topRepos = scoredRepos
+    .sort((a, b) => b.hallOfFameScore - a.hallOfFameScore)
+    .slice(0, 3);
+
+  console.log("DEBUG topRepos:", topRepos);
 
   const languageCounts = {};
   relevantRepos.forEach((r) => {
@@ -836,6 +862,7 @@ export default async function Home({ searchParams }) {
         totalIssues={issueStats.totalIssues}
         totalContributions={totalContributions}
         chapters={namedChapters}
+        topRepos={topRepos}
       />
 
       </div>
