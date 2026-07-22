@@ -634,6 +634,61 @@ let forgivingStreak = 0;
   };
 }
 
+async function getContributorLocations(contributorUsernames, accessToken) {
+  const headers = { Authorization: `Bearer ${accessToken}` };
+  const locations = [];
+
+  for (const username of contributorUsernames.slice(0, 20)) {
+    try {
+      const res = await fetch(`https://api.github.com/users/${username}`, {
+        headers,
+        cache: "no-store",
+      });
+      if (res.ok) {
+        const user = await res.json();
+        console.log(`DEBUG profile for ${username}:`, { type: user.type, location: user.location });
+        if (user.location) {
+          locations.push({ username, location: user.location });
+        }
+      } else {
+        console.log(`DEBUG profile fetch failed for ${username}:`, res.status);
+      }
+    } catch (err) {
+      console.log(`DEBUG profile fetch error for ${username}:`, err.message);
+    }
+  }
+
+  return locations;
+}
+
+async function geocodeLocations(locations) {
+  const geocoded = [];
+
+  for (const loc of locations) {
+    try {
+      const res = await fetch(
+        `https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(loc.location)}&format=json&limit=1`,
+        { headers: { "User-Agent": "CodeWrapped/1.0" } }
+      );
+      if (res.ok) {
+        const results = await res.json();
+        if (results.length > 0) {
+          geocoded.push({
+            username: loc.username,
+            location: loc.location,
+            lat: parseFloat(results[0].lat),
+            lng: parseFloat(results[0].lon),
+          });
+        }
+      }
+    } catch (err) {
+      // skip failures silently
+    }
+  }
+
+  return geocoded;
+}
+
 export default async function Home({ searchParams }) {
   const params = await searchParams;
   const period = params.period || "all";
@@ -721,6 +776,48 @@ export default async function Home({ searchParams }) {
     commitStats.touchedRepos.length > 0
       ? allRepos.filter((r) => commitStats.touchedRepos.includes(r.name))
       : [];
+  
+  const incomingLocations = await getContributorLocations(
+    commitStats.contributorsToYourRepos || [],
+    session.accessToken
+  );
+  const geocodedIncoming = await geocodeLocations(incomingLocations);
+  const taggedIncoming = geocodedIncoming.map((loc) => ({ ...loc, direction: "incoming" }));
+
+  // For outgoing, we need the OWNER of each repo you contributed to (not you)
+  const outgoingOwners = [];
+  for (const repoName of commitStats.reposWhereIAmCollaborator || []) {
+    const repo = allRepos.find((r) => r.name === repoName);
+    if (repo?.fork) {
+      // Fetch the full repo details to get the parent (original) repo's owner
+      try {
+        const detailRes = await fetch(
+          `https://api.github.com/repos/${repo.full_name}`,
+          { headers: { Authorization: `Bearer ${session.accessToken}` }, cache: "no-store" }
+        );
+        if (detailRes.ok) {
+          const fullDetail = await detailRes.json();
+          if (fullDetail.parent?.owner?.login) {
+            outgoingOwners.push(fullDetail.parent.owner.login);
+          }
+        }
+      } catch (err) {
+        // skip silently
+      }
+    } else if (repo?.owner?.login) {
+      outgoingOwners.push(repo.owner.login);
+    }
+  }
+  
+  const outgoingLocations = await getContributorLocations(outgoingOwners, session.accessToken);
+  const geocodedOutgoing = await geocodeLocations(outgoingLocations);
+  const taggedOutgoing = geocodedOutgoing.map((loc) => ({ ...loc, direction: "outgoing" }));
+
+  const geocodedLocations = [...taggedIncoming, ...taggedOutgoing];
+
+  console.log("DEBUG geocodedLocations:", geocodedLocations);
+
+  console.log("DEBUG contributorsToYourRepos:", commitStats.contributorsToYourRepos);
 
   const totalRepos = relevantRepos.length;
   const totalStars = relevantRepos.reduce((sum, r) => sum + r.stargazers_count, 0);
@@ -743,6 +840,8 @@ export default async function Home({ searchParams }) {
     const collaboratorCount = commitStats.collaboratorsPerRepo?.[r.name] || 0;
     const iAmCollaboratorHere = commitStats.reposWhereIAmCollaborator?.includes(r.name);
     const collabScore = (collaboratorCount > 0 ? 15 : 0) + (iAmCollaboratorHere ? 15 : 0);
+
+    console.log("DEBUG reposWhereIAmCollaborator:", commitStats.reposWhereIAmCollaborator);
 
     return {
       ...r,
@@ -876,6 +975,7 @@ export default async function Home({ searchParams }) {
         totalContributions={totalContributions}
         chapters={namedChapters}
         topRepos={topRepos}
+        worldMapLocations={geocodedLocations}
       />
 
       </div>

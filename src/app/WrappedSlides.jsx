@@ -3,6 +3,7 @@ import CommitTimelineChart from "./CommitTimelineChart";
 import CollaborationChart from "./CollaborationChart";
 import PRTimelineChart from "./PRTimelineChart";
 import DataDisclaimer from "./DataDisclaimer";
+import WorldMap from "./WorldMap";
 
 export default function WrappedSlides({
   name,
@@ -42,6 +43,7 @@ export default function WrappedSlides({
   totalIssues,
   totalContributions,
   topRepos,
+  worldMapLocations,
 }) {
   const slideBase =
     "h-screen w-full flex flex-col items-center justify-center snap-start px-6 text-center";
@@ -272,6 +274,15 @@ export default function WrappedSlides({
             incomingCount={contributorsToYourRepos?.length || 0}
           />
         </div>
+      </section>
+
+       {/* Slide: World Map */}
+      <section className={`${slideBase} bg-slate-900 text-white`}>
+        <p className="text-xl mb-1">Your collaborators around the world</p>
+        <p className="text-xs text-slate-400 mb-6 max-w-sm">
+          Based on locations people have chosen to share on their public GitHub profile.
+        </p>
+        <WorldMap locations={worldMapLocations} />
       </section>
 
       {/* Slide: PR Timeline */}
