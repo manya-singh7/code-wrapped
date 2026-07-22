@@ -266,10 +266,10 @@ async function generateChapters(chapters, username, period) {
     const model = genAI.getGenerativeModel({ model: "gemini-3.1-flash-lite" });
 
     const chapterDescriptions = chapters
-      .map((c, i) => `Chapter ${i + 1}: ${c.start} to ${c.end}, ${c.commits} commits`)
+      .map((c, i) => `Chapter ${i + 1}: ${c.start} to ${c.end}, ${c.commits} commits, worked on: ${c.repos.join(", ") || "various projects"}`)
       .join("\n");
 
-    const prompt = `Given these coding activity chapters for a developer's year, give each one a short, evocative 2-3 word title (like "Learning Era", "Builder Sprint", "Grind Mode", "Open Source Dive") and a single encouraging sentence describing that period. Respond with ONLY a JSON array like [{"title": "...", "description": "..."}], one object per chapter, in order, no markdown fences.
+     const prompt = `Given these coding activity chapters for a developer's year, give each one a short, evocative 2-3 word title based on what they actually worked on (reference the project names naturally if it fits, like "VelvetSeat Sprint" or "LeetCode Grind") and a single specific sentence describing that period, mentioning the actual project(s) by name where possible. Respond with ONLY a JSON array like [{"title": "...", "description": "..."}], one object per chapter, in order, no markdown fences.
 
 ${chapterDescriptions}`;
 
@@ -327,33 +327,36 @@ function detectCommitPersonality(messages) {
   return { label: top.label, description: top.description };
 }
 
-function detectChapters(timeline) {
-  if (!timeline || timeline.length === 0) return [];
+function detectChapters(sortedCommits, commitsByRepo) {
+  if (!sortedCommits || sortedCommits.length === 0) return [];
 
-  const sorted = [...timeline].sort((a, b) => new Date(a.date) - new Date(b.date));
-  const totalDays = sorted.length;
-
-  if (totalDays < 4) {
-    return [
-      {
-        start: sorted[0]?.date,
-        end: sorted[sorted.length - 1]?.date,
-        commits: sorted.reduce((sum, d) => sum + d.commits, 0),
-      },
-    ];
-  }
-
-  const chunkCount = totalDays > 60 ? 4 : totalDays > 20 ? 3 : 2;
+  const totalDays = sortedCommits.length;
+  const chunkCount = totalDays > 60 ? 4 : totalDays > 20 ? 3 : totalDays > 5 ? 2 : 1;
   const chunkSize = Math.ceil(totalDays / chunkCount);
   const chapters = [];
 
   for (let i = 0; i < totalDays; i += chunkSize) {
-    const chunk = sorted.slice(i, i + chunkSize);
+    const chunk = sortedCommits.slice(i, i + chunkSize);
     if (chunk.length === 0) continue;
+
+    const startDate = chunk[0].dateKey;
+    const endDate = chunk[chunk.length - 1].dateKey;
+
+    // Find which repos had commits in this date range
+    const reposInChunk = new Set();
+    Object.entries(commitsByRepo).forEach(([repoName, dates]) => {
+      dates.forEach((d) => {
+        if (d.dateKey >= startDate && d.dateKey <= endDate) {
+          reposInChunk.add(repoName);
+        }
+      });
+    });
+
     chapters.push({
-      start: chunk[0].date,
-      end: chunk[chunk.length - 1].date,
-      commits: chunk.reduce((sum, d) => sum + d.commits, 0),
+      start: startDate,
+      end: endDate,
+      commits: chunk.length,
+      repos: Array.from(reposInChunk),
     });
   }
 
@@ -616,6 +619,8 @@ let forgivingStreak = 0;
     timeline,
     forgivingSkippedDate,
     contributorsToYourRepos: Array.from(contributorsToYourRepos),
+    commitsByRepo,
+    sortedCommits,
   };
 }
 
@@ -767,7 +772,7 @@ export default async function Home({ searchParams }) {
     commitStats.commitPersonality
   );
 
-  const chapters = detectChapters(commitStats.timeline);
+  const chapters = detectChapters(commitStats.sortedCommits, commitStats.commitsByRepo);
   const namedChapters = await generateChapters(chapters, session.githubLogin, period);
 
   return (
