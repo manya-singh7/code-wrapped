@@ -31,7 +31,8 @@ export default function WorldMap({ locations }) {
               r={5}
               fill={loc.direction === "incoming" ? "#22d3ee" : "#f472b6"}
               stroke="#fff"
-              strokeWidth={1}
+              strokeWidth={(loc.fromBio || loc.fromReadme) ? 2 : 1}
+              strokeDasharray={(loc.fromBio || loc.fromReadme) ? "2,1" : "0"}
             />
           </Marker>
         ))}

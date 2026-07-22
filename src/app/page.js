@@ -639,21 +639,37 @@ async function getContributorLocations(contributorUsernames, accessToken) {
   const locations = [];
 
   for (const username of contributorUsernames.slice(0, 20)) {
+    console.log(`DEBUG processing contributor: ${username}`);
     try {
       const res = await fetch(`https://api.github.com/users/${username}`, {
         headers,
         cache: "no-store",
       });
+      console.log(`DEBUG fetch status for ${username}:`, res.status);
       if (res.ok) {
         const user = await res.json();
+        if (username === "piyushdotcomm") {
+          console.log("PIYUSH raw profile:", { location: user.location, bio: user.bio });
+        }
         if (user.location) {
           locations.push({ username, location: user.location });
-        } else if (user.bio) {
-          console.log(`DEBUG trying bio extraction for ${username}:`, user.bio);
-          const extractedLocation = await extractLocationFromBio(user.bio);
-          console.log(`DEBUG bio extraction result for ${username}:`, extractedLocation);
+        } else {
+          let extractedLocation = null;
+
+          if (user.bio) {
+            extractedLocation = await extractLocationFromBio(user.bio);
+          }
+
           if (extractedLocation) {
             locations.push({ username, location: extractedLocation, fromBio: true });
+          } else {
+            const readme = await fetchProfileReadme(username, accessToken);
+            if (readme) {
+              const extractedFromReadme = await extractLocationFromBio(readme);
+              if (extractedFromReadme) {
+                locations.push({ username, location: extractedFromReadme, fromReadme: true });
+              }
+            }
           }
         }
       } else {
@@ -686,6 +702,25 @@ Bio: "${bio}"`;
   } catch (error) {
     return null;
   }
+}
+
+async function fetchProfileReadme(username, accessToken) {
+  const headers = { Authorization: `Bearer ${accessToken}` };
+  try {
+    const res = await fetch(
+      `https://api.github.com/repos/${username}/${username}/readme`,
+      { headers, cache: "no-store" }
+    );
+    if (res.ok) {
+      const data = await res.json();
+      // content comes base64-encoded
+      const decoded = Buffer.from(data.content, "base64").toString("utf-8");
+      return decoded.slice(0, 2000); // cap length to keep AI prompt reasonable
+    }
+  } catch (err) {
+    // no profile README exists, or fetch failed
+  }
+  return null;
 }
 
 async function geocodeLocations(locations) {
@@ -816,8 +851,8 @@ export default async function Home({ searchParams }) {
   const outgoingOwners = [];
   for (const repoName of commitStats.reposWhereIAmCollaborator || []) {
     const repo = allRepos.find((r) => r.name === repoName);
+    console.log(`DEBUG checking outgoing owner for ${repoName}: fork=${repo?.fork}, owner=${repo?.owner?.login}`);
     if (repo?.fork) {
-      // Fetch the full repo details to get the parent (original) repo's owner
       try {
         const detailRes = await fetch(
           `https://api.github.com/repos/${repo.full_name}`,
@@ -825,17 +860,21 @@ export default async function Home({ searchParams }) {
         );
         if (detailRes.ok) {
           const fullDetail = await detailRes.json();
+          console.log(`DEBUG parent owner for ${repoName}:`, fullDetail.parent?.owner?.login);
           if (fullDetail.parent?.owner?.login) {
             outgoingOwners.push(fullDetail.parent.owner.login);
           }
+        } else {
+          console.log(`DEBUG detail fetch failed for ${repoName}:`, detailRes.status);
         }
       } catch (err) {
-        // skip silently
+        console.log(`DEBUG detail fetch error for ${repoName}:`, err.message);
       }
     } else if (repo?.owner?.login) {
       outgoingOwners.push(repo.owner.login);
     }
   }
+  console.log("DEBUG final outgoingOwners:", outgoingOwners);
 
   const outgoingLocations = await getContributorLocations(outgoingOwners, session.accessToken);
   const geocodedOutgoing = await geocodeLocations(outgoingLocations);
