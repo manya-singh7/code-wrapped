@@ -376,6 +376,8 @@ async function getCommitStats(accessToken, username, sinceDate, untilDate, timez
   let linesByDate = [];
   let allMessages = [];
   let contributorsToYourRepos = new Set();
+  let collaboratorsPerRepo = {};
+  let reposWhereIAmCollaborator = new Set();
 
   for (const repo of ownRepos.slice(0, 40)) {
     const isMyOwnOriginalRepo = !repo.fork;
@@ -396,10 +398,16 @@ async function getCommitStats(accessToken, username, sinceDate, untilDate, timez
             (c) => c.author && c.author.login !== username
           );
           if (othersCommits.length > 0) {
+            const uniqueOthers = new Set();
             othersCommits.forEach((c) => {
               contributorsToYourRepos.add(c.author.login);
+              uniqueOthers.add(c.author.login);
             });
+            collaboratorsPerRepo[repo.name] = uniqueOthers.size;
           }
+        } else if (myCommits.length > 0) {
+          // This is a fork, and you personally committed to it — you're a collaborator here
+          reposWhereIAmCollaborator.add(repo.name);
         }
 
         if (myCommits.length > 0) {
@@ -621,6 +629,8 @@ let forgivingStreak = 0;
     contributorsToYourRepos: Array.from(contributorsToYourRepos),
     commitsByRepo,
     sortedCommits,
+    collaboratorsPerRepo,
+    reposWhereIAmCollaborator: Array.from(reposWhereIAmCollaborator),
   };
 }
 
@@ -719,31 +729,33 @@ export default async function Home({ searchParams }) {
     null
   );
   const maxStars = Math.max(...relevantRepos.map((r) => r.stargazers_count), 1);
+  const maxForks = Math.max(...relevantRepos.map((r) => r.forks_count), 1);
   const repoCommitCounts = {};
   Object.entries(commitStats.commitsByRepo || {}).forEach(([repoName, dates]) => {
     repoCommitCounts[repoName] = dates.length;
   });
   const maxCommitsInRepo = Math.max(...Object.values(repoCommitCounts), 1);
-  console.log("DEBUG repoCommitCounts:", repoCommitCounts);
 
   const scoredRepos = relevantRepos.map((r) => {
-    const starScore = (r.stargazers_count / maxStars) * 40;
+    const starScore = (r.stargazers_count / maxStars) * 25;
+    const forksScore = (r.forks_count / maxForks) * 10;
     const commitScore = ((repoCommitCounts[r.name] || 0) / maxCommitsInRepo) * 35;
-    const hasCollaborators = commitStats.contributorsToYourRepos?.length > 0 && !r.fork;
-    const collabScore = hasCollaborators ? 25 : 0;
+    const collaboratorCount = commitStats.collaboratorsPerRepo?.[r.name] || 0;
+    const iAmCollaboratorHere = commitStats.reposWhereIAmCollaborator?.includes(r.name);
+    const collabScore = (collaboratorCount > 0 ? 15 : 0) + (iAmCollaboratorHere ? 15 : 0);
 
     return {
       ...r,
-      hallOfFameScore: starScore + commitScore + collabScore,
+      hallOfFameScore: starScore + forksScore + commitScore + collabScore,
       repoCommitCount: repoCommitCounts[r.name] || 0,
+      collaboratorCount,
+      iAmCollaboratorHere,
     };
   });
 
   const topRepos = scoredRepos
     .sort((a, b) => b.hallOfFameScore - a.hallOfFameScore)
     .slice(0, 3);
-
-  console.log("DEBUG topRepos:", topRepos);
 
   const languageCounts = {};
   relevantRepos.forEach((r) => {
@@ -792,6 +804,7 @@ export default async function Home({ searchParams }) {
       mergedPRs: prStats.mergedPRs,
       ownRepoPRs: prStats.ownRepoPRs,
       otherRepoPRs: prStats.otherRepoPRs,
+      
     },
     session.githubLogin,
     period,

@@ -185,34 +185,58 @@ export default function WrappedSlides({
       {/* Slide : Repo Hall of Fame */}
       <section className={`${slideBase} bg-yellow-500 text-black`}>
         <p className="text-xl mb-6">Repo Hall of Fame</p>
+        <p className="text-xs text-black/60 mb-6 max-w-xs">
+          Ranked using stars, forks, commits, and collaboration
+        </p>
         {topRepos && topRepos.length > 0 ? (
           <div className="flex items-end gap-4 justify-center">
             {topRepos[1] && (
               <div className="flex flex-col items-center w-24">
-                <div className="bg-black/10 rounded-t-xl px-2 pt-4 pb-2 h-24 w-full flex flex-col justify-end items-center text-center">
+                <div className="bg-black/10 rounded-t-xl px-2 pt-4 pb-2 w-full min-h-24 flex flex-col justify-end items-center text-center gap-0.5">
                   <p className="text-xs font-bold break-words leading-tight">{topRepos[1].name}</p>
-                  <p className="text-xs mt-1">⭐ {topRepos[1].stargazers_count}</p>
+                  <p className="text-xs">⭐ {topRepos[1].stargazers_count}</p>
                   <p className="text-xs">{topRepos[1].repoCommitCount} commits</p>
+                  <p className="text-[10px] font-medium">
+  {topRepos[1].iAmCollaboratorHere
+    ? "You're a contributor here"
+    : topRepos[1].collaboratorCount > 0
+    ? `${topRepos[1].collaboratorCount} collaborator${topRepos[1].collaboratorCount > 1 ? "s" : ""}`
+    : "Solo project"}
+</p>
                 </div>
                 <div className="bg-black/20 w-full text-center py-1 rounded-b-sm font-bold">2</div>
               </div>
             )}
             {topRepos[0] && (
               <div className="flex flex-col items-center w-24">
-                <div className="bg-black/10 rounded-t-xl px-2 pt-4 pb-2 h-32 w-full flex flex-col justify-end items-center text-center">
+                <div className="bg-black/10 rounded-t-xl px-2 pt-4 pb-2 w-full min-h-32 flex flex-col justify-end items-center text-center gap-0.5">
                   <p className="text-xs font-bold break-words leading-tight">{topRepos[0].name}</p>
-                  <p className="text-xs mt-1">⭐ {topRepos[0].stargazers_count}</p>
+                  <p className="text-xs">⭐ {topRepos[0].stargazers_count}</p>
                   <p className="text-xs">{topRepos[0].repoCommitCount} commits</p>
+                  <p className="text-[10px] font-medium">
+  {topRepos[0].iAmCollaboratorHere
+    ? "You're a contributor here"
+    : topRepos[0].collaboratorCount > 0
+    ? `${topRepos[0].collaboratorCount} collaborator${topRepos[0].collaboratorCount > 1 ? "s" : ""}`
+    : "Solo project"}
+</p>
                 </div>
                 <div className="bg-black/20 w-full text-center py-1 rounded-b-sm font-bold">1</div>
               </div>
             )}
             {topRepos[2] && (
               <div className="flex flex-col items-center w-24">
-                <div className="bg-black/10 rounded-t-xl px-2 pt-4 pb-2 h-16 w-full flex flex-col justify-end items-center text-center">
+                <div className="bg-black/10 rounded-t-xl px-2 pt-4 pb-2 w-full min-h-16 flex flex-col justify-end items-center text-center gap-0.5">
                   <p className="text-xs font-bold break-words leading-tight">{topRepos[2].name}</p>
-                  <p className="text-xs mt-1">⭐ {topRepos[2].stargazers_count}</p>
+                  <p className="text-xs">⭐ {topRepos[2].stargazers_count}</p>
                   <p className="text-xs">{topRepos[2].repoCommitCount} commits</p>
+                  <p className="text-[10px] font-medium">
+  {topRepos[2].iAmCollaboratorHere
+    ? "You're a contributor here"
+    : topRepos[2].collaboratorCount > 0
+    ? `${topRepos[2].collaboratorCount} collaborator${topRepos[2].collaboratorCount > 1 ? "s" : ""}`
+    : "Solo project"}
+</p>
                 </div>
                 <div className="bg-black/20 w-full text-center py-1 rounded-b-sm font-bold">3</div>
               </div>
