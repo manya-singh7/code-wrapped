@@ -363,6 +363,99 @@ function detectChapters(sortedCommits, commitsByRepo) {
   return chapters;
 }
 
+function detectSecretAchievements(stats) {
+  const achievements = [];
+
+  // Night Owl - commits between midnight and 4am
+  if (stats.mostActiveHour) {
+    const hour = parseInt(stats.mostActiveHour);
+    if (hour >= 0 && hour < 4) {
+      achievements.push({
+        id: "night_owl",
+        title: "🦉 Night Owl",
+        description: `Your most active hour is ${stats.mostActiveHour} — the world sleeps, you ship.`,
+      });
+    }
+  }
+
+  // Early Bird - commits between 5am and 7am
+  if (stats.mostActiveHour) {
+    const hour = parseInt(stats.mostActiveHour);
+    if (hour >= 5 && hour < 7) {
+      achievements.push({
+        id: "early_bird",
+        title: "🌅 Early Bird",
+        description: `Coding before ${stats.mostActiveHour} — most people are still asleep.`,
+      });
+    }
+  }
+
+  // Comeback Kid - had a longest gap of 14+ days, then came back
+  if (stats.longestGap >= 14) {
+    achievements.push({
+      id: "comeback_kid",
+      title: "🔄 Comeback Kid",
+      description: `You took a ${stats.longestGap}-day break and came back stronger.`,
+    });
+  }
+
+  // Marathon Coder - streak of 14+ days
+  if (stats.longestStreak >= 14) {
+    achievements.push({
+      id: "marathon_coder",
+      title: "🏃 Marathon Coder",
+      description: `A ${stats.longestStreak}-day streak — genuine dedication.`,
+    });
+  }
+
+  // Weekend Warrior - more weekend commits than weekday
+  if (stats.weekendCommits > stats.weekdayCommits && stats.weekendCommits > 0) {
+    achievements.push({
+      id: "weekend_warrior",
+      title: "⚡ Weekend Warrior",
+      description: "Your best work happens when everyone else is resting.",
+    });
+  }
+
+  // Bug Whisperer - commit personality is Professional Bug Exorcist
+  if (stats.commitPersonality?.label === "Professional Bug Exorcist") {
+    achievements.push({
+      id: "bug_whisperer",
+      title: "🐛 Bug Whisperer",
+      description: "You fix things. Then you fix the fix. It's a lifestyle.",
+    });
+  }
+
+  // Prolific - 100+ commits
+  if (stats.totalCommits >= 100) {
+    achievements.push({
+      id: "prolific",
+      title: "💯 Prolific",
+      description: `${stats.totalCommits} commits — you don't just code, you ship.`,
+    });
+  }
+
+  // Community Builder - had real collaborators
+  if (stats.contributorsCount > 0) {
+    achievements.push({
+      id: "community_builder",
+      title: "🤝 Community Builder",
+      description: `${stats.contributorsCount} ${stats.contributorsCount === 1 ? "person" : "people"} contributed to your work.`,
+    });
+  }
+
+  // Polyglot - 3+ different languages
+  if (stats.topLanguagesCount >= 3) {
+    achievements.push({
+      id: "polyglot",
+      title: "🌐 Polyglot",
+      description: "Fluent in multiple languages — the code kind.",
+    });
+  }
+
+  return achievements;
+}
+
 async function getCommitStats(accessToken, username, sinceDate, untilDate, timezone) {
   const headers = { Authorization: `Bearer ${accessToken}` };
 
@@ -932,6 +1025,18 @@ export default async function Home({ searchParams }) {
   const topLanguages = Object.entries(languageCounts)
     .sort((a, b) => b[1] - a[1])
     .slice(0, 3);
+
+  const secretAchievements = detectSecretAchievements({
+    mostActiveHour: commitStats.mostActiveHour,
+    longestGap: commitStats.longestGap,
+    longestStreak: commitStats.longestStreak,
+    weekendCommits: commitStats.weekendCommits,
+    weekdayCommits: commitStats.weekdayCommits,
+    commitPersonality: commitStats.commitPersonality,
+    totalCommits: commitStats.totalCommits,
+    contributorsCount: commitStats.contributorsToYourRepos?.length || 0,
+    topLanguagesCount: topLanguages.length,
+  });
   // Rough placeholder percentile until we have real Code Wrapped user data to compare against
   const streakPercentile = Math.min(
     99,
@@ -1043,6 +1148,7 @@ export default async function Home({ searchParams }) {
         chapters={namedChapters}
         topRepos={topRepos}
         worldMapLocations={geocodedLocations}
+        secretAchievements={secretAchievements}
       />
 
       </div>

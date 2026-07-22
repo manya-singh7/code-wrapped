@@ -8,6 +8,7 @@ import WorldMap from "./WorldMap";
 export default function WrappedSlides({
   name,
   avatarUrl,
+  secretAchievements,
   chapters,
   totalCommits,
   longestStreak,
@@ -290,6 +291,26 @@ export default function WrappedSlides({
         <p className="text-xl mb-6">Your collaboration over time</p>
         <div className="w-full max-w-lg px-4">
           <PRTimelineChart timeline={prTimeline} />
+        </div>
+      </section>
+
+      {/* Slide: Secret Achievements */}
+      <section className={`${slideBase} bg-gradient-to-br from-amber-600 to-orange-700 text-white`}>
+        <p className="text-sm uppercase tracking-wide mb-2 text-amber-100">Achievements Unlocked</p>
+        <p className="text-2xl font-bold mb-6">
+          {secretAchievements?.length || 0} secret{secretAchievements?.length === 1 ? "" : "s"} found
+        </p>
+        <div className="flex flex-col gap-3 w-full max-w-md">
+          {secretAchievements && secretAchievements.length > 0 ? (
+            secretAchievements.map((a) => (
+              <div key={a.id} className="rounded-xl bg-white/15 p-4 text-left">
+                <p className="text-lg font-bold">{a.title}</p>
+                <p className="text-sm text-amber-100">{a.description}</p>
+              </div>
+            ))
+          ) : (
+            <p className="text-amber-100">Keep coding — achievements await.</p>
+          )}
         </div>
       </section>
 
