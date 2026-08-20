@@ -366,7 +366,6 @@ function detectChapters(sortedCommits, commitsByRepo) {
 function detectSecretAchievements(stats) {
   const achievements = [];
 
-  // Night Owl - commits between midnight and 4am
   if (stats.mostActiveHour) {
     const hour = parseInt(stats.mostActiveHour);
     if (hour >= 0 && hour < 4) {
@@ -376,11 +375,6 @@ function detectSecretAchievements(stats) {
         description: `Your most active hour is ${stats.mostActiveHour} — the world sleeps, you ship.`,
       });
     }
-  }
-
-  // Early Bird - commits between 5am and 7am
-  if (stats.mostActiveHour) {
-    const hour = parseInt(stats.mostActiveHour);
     if (hour >= 5 && hour < 7) {
       achievements.push({
         id: "early_bird",
@@ -390,7 +384,6 @@ function detectSecretAchievements(stats) {
     }
   }
 
-  // Comeback Kid - had a longest gap of 14+ days, then came back
   if (stats.longestGap >= 14) {
     achievements.push({
       id: "comeback_kid",
@@ -399,7 +392,6 @@ function detectSecretAchievements(stats) {
     });
   }
 
-  // Marathon Coder - streak of 14+ days
   if (stats.longestStreak >= 14) {
     achievements.push({
       id: "marathon_coder",
@@ -408,7 +400,6 @@ function detectSecretAchievements(stats) {
     });
   }
 
-  // Weekend Warrior - more weekend commits than weekday
   if (stats.weekendCommits > stats.weekdayCommits && stats.weekendCommits > 0) {
     achievements.push({
       id: "weekend_warrior",
@@ -417,7 +408,6 @@ function detectSecretAchievements(stats) {
     });
   }
 
-  // Bug Whisperer - commit personality is Professional Bug Exorcist
   if (stats.commitPersonality?.label === "Professional Bug Exorcist") {
     achievements.push({
       id: "bug_whisperer",
@@ -426,7 +416,30 @@ function detectSecretAchievements(stats) {
     });
   }
 
-  // Prolific - 100+ commits
+  if (stats.commitPersonality?.label === "Version Naming Visionary") {
+    achievements.push({
+      id: "version_visionary",
+      title: "🔢 Version Naming Visionary",
+      description: "final, final2, final_final... you've lived this saga.",
+    });
+  }
+
+  if (stats.commitPersonality?.label === "Documentation Defender") {
+    achievements.push({
+      id: "docs_defender",
+      title: "📚 Documentation Defender",
+      description: "Someone has to keep the README alive, and it's you.",
+    });
+  }
+
+  if (stats.commitPersonality?.label === "Optimistic Starter") {
+    achievements.push({
+      id: "optimistic_starter",
+      title: "🌱 Optimistic Starter",
+      description: "Work in progress, forever in progress — and that's okay.",
+    });
+  }
+
   if (stats.totalCommits >= 100) {
     achievements.push({
       id: "prolific",
@@ -435,7 +448,6 @@ function detectSecretAchievements(stats) {
     });
   }
 
-  // Community Builder - had real collaborators
   if (stats.contributorsCount > 0) {
     achievements.push({
       id: "community_builder",
@@ -444,7 +456,6 @@ function detectSecretAchievements(stats) {
     });
   }
 
-  // Polyglot - 3+ different languages
   if (stats.topLanguagesCount >= 3) {
     achievements.push({
       id: "polyglot",
@@ -453,7 +464,64 @@ function detectSecretAchievements(stats) {
     });
   }
 
+  if (stats.countryCount >= 2) {
+    achievements.push({
+      id: "global_citizen",
+      title: "🌍 Global Citizen",
+      description: `Your collaborators span ${stats.countryCount} different countries.`,
+    });
+  }
+
+  if (stats.commitDays && stats.commitDays.length > 0) {
+    const years = new Set(stats.commitDays.map((d) => d.split("-")[0]));
+    if (years.size >= 2) {
+      achievements.push({
+        id: "time_traveler",
+        title: "⏳ Time Traveler",
+        description: "Your commits span multiple years — steady dedication over time.",
+      });
+    }
+  }
+
+  if (stats.totalPRs > 0 && stats.mergedPRs > 0) {
+    achievements.push({
+      id: "completionist",
+      title: "✅ The Completionist",
+      description: "You don't just start things — you see them through to merge.",
+    });
+  }
+
+  if (stats.topRepoHasEverything) {
+    achievements.push({
+      id: "the_architect",
+      title: "🏛️ The Architect",
+      description: "Your top project has stars, real commit history, and real collaborators.",
+    });
+  }
+
   return achievements;
+}
+
+async function checkRisingStar(username, currentCommits, currentPeriod) {
+  if (currentPeriod === "all") return null; // no meaningful "previous period" for all-time
+
+  const { data: previousEntries } = await supabase
+    .from("wrapped_cache")
+    .select("total_commits, created_at")
+    .eq("github_username", username)
+    .neq("period", currentPeriod)
+    .order("created_at", { ascending: false })
+    .limit(1);
+
+  const previous = previousEntries?.[0];
+  if (previous && previous.total_commits > 0 && currentCommits > previous.total_commits * 1.5) {
+    return {
+      id: "rising_star",
+      title: "📈 Rising Star",
+      description: "Your recent activity shows real momentum compared to before.",
+    };
+  }
+  return null;
 }
 
 async function checkFirstToAchievements(username, stats) {
@@ -778,18 +846,15 @@ async function getContributorLocations(contributorUsernames, accessToken) {
   const locations = [];
 
   for (const username of contributorUsernames.slice(0, 20)) {
-    console.log(`DEBUG processing contributor: ${username}`);
     try {
       const res = await fetch(`https://api.github.com/users/${username}`, {
         headers,
         cache: "no-store",
       });
-      console.log(`DEBUG fetch status for ${username}:`, res.status);
+
       if (res.ok) {
         const user = await res.json();
-        if (username === "piyushdotcomm") {
-          console.log("PIYUSH raw profile:", { location: user.location, bio: user.bio });
-        }
+        
         if (user.location) {
           locations.push({ username, location: user.location });
         } else {
@@ -811,11 +876,7 @@ async function getContributorLocations(contributorUsernames, accessToken) {
             }
           }
         }
-      } else {
-        console.log(`DEBUG profile fetch failed for ${username}:`, res.status);
       }
-    } catch (err) {
-      console.log(`DEBUG profile fetch error for ${username}:`, err.message);
     }
   }
 
@@ -873,7 +934,6 @@ async function geocodeLocations(locations) {
       );
       if (res.ok) {
         const results = await res.json();
-        console.log(`DEBUG geocode results for "${loc.location}":`, results.length, results[0]?.display_name);
         if (results.length > 0) {
           geocoded.push({
             username: loc.username,
@@ -990,7 +1050,6 @@ export default async function Home({ searchParams }) {
   const outgoingOwners = [];
   for (const repoName of commitStats.reposWhereIAmCollaborator || []) {
     const repo = allRepos.find((r) => r.name === repoName);
-    console.log(`DEBUG checking outgoing owner for ${repoName}: fork=${repo?.fork}, owner=${repo?.owner?.login}`);
     if (repo?.fork) {
       try {
         const detailRes = await fetch(
@@ -999,15 +1058,10 @@ export default async function Home({ searchParams }) {
         );
         if (detailRes.ok) {
           const fullDetail = await detailRes.json();
-          console.log(`DEBUG parent owner for ${repoName}:`, fullDetail.parent?.owner?.login);
           if (fullDetail.parent?.owner?.login) {
             outgoingOwners.push(fullDetail.parent.owner.login);
           }
-        } else {
-          console.log(`DEBUG detail fetch failed for ${repoName}:`, detailRes.status);
         }
-      } catch (err) {
-        console.log(`DEBUG detail fetch error for ${repoName}:`, err.message);
       }
     } else if (repo?.owner?.login) {
       outgoingOwners.push(repo.owner.login);
@@ -1062,7 +1116,7 @@ export default async function Home({ searchParams }) {
     .sort((a, b) => b.hallOfFameScore - a.hallOfFameScore)
     .slice(0, 3);
 
-  const languageCounts = {};
+      const languageCounts = {};
   relevantRepos.forEach((r) => {
     if (r.language) {
       languageCounts[r.language] = (languageCounts[r.language] || 0) + 1;
@@ -1071,6 +1125,54 @@ export default async function Home({ searchParams }) {
   const topLanguages = Object.entries(languageCounts)
     .sort((a, b) => b[1] - a[1])
     .slice(0, 3);
+
+  const streakPercentile = Math.min(
+    99,
+    Math.round((commitStats.longestStreak / 30) * 100)
+  );
+
+  const generatedDate = new Date().toLocaleDateString("en-US", {
+    year: "numeric",
+    month: "long",
+    day: "numeric",
+  });
+
+  const aiContent = await generateAIContent(
+    {
+      totalCommits: commitStats.totalCommits,
+      longestStreak: commitStats.longestStreak,
+      mostActiveWeekday: commitStats.mostActiveWeekday,
+      mostActiveHour: commitStats.mostActiveHour,
+      weekdayCommits: commitStats.weekdayCommits,
+      weekendCommits: commitStats.weekendCommits,
+      topLanguage: topLanguages[0]?.[0],
+      topLanguages: topLanguages,
+      totalAdditions: commitStats.totalAdditions,
+      totalDeletions: commitStats.totalDeletions,
+      totalPRs: prStats.totalPRs,
+      mergedPRs: prStats.mergedPRs,
+      totalStars: totalStars,
+      avatarUrl: session.user.image,
+      totalRepos: totalRepos,
+      contributorsCount: commitStats.contributorsToYourRepos?.length || 0,
+      mostStarredRepo: mostStarred?.name || null,
+      totalIssues: issueStats.totalIssues,
+      timeline: commitStats.timeline,
+      prTimeline: prStats.timeline,
+      ownRepoPRs: prStats.ownRepoPRs,
+      otherRepoPRs: prStats.otherRepoPRs,
+    },
+    session.githubLogin,
+    period,
+    commitStats.commitPersonality
+  );
+
+  const chapters = detectChapters(commitStats.sortedCommits, commitStats.commitsByRepo);
+  const namedChapters = await generateChapters(chapters, session.githubLogin, period);
+
+    const uniqueCountries = new Set(
+    geocodedLocations.map((loc) => loc.location.split(",").pop().trim())
+  );
 
   const secretAchievements = detectSecretAchievements({
     mostActiveHour: commitStats.mostActiveHour,
@@ -1082,6 +1184,15 @@ export default async function Home({ searchParams }) {
     totalCommits: commitStats.totalCommits,
     contributorsCount: commitStats.contributorsToYourRepos?.length || 0,
     topLanguagesCount: topLanguages.length,
+    countryCount: uniqueCountries.size,
+    commitDays: commitStats.timeline?.map((t) => t.date) || [],
+    totalPRs: prStats.totalPRs,
+    mergedPRs: prStats.mergedPRs,
+    topRepoHasEverything:
+      topRepos[0] &&
+      topRepos[0].stargazers_count > 0 &&
+      topRepos[0].repoCommitCount > 5 &&
+      topRepos[0].collaboratorCount > 0,
   });
 
   const firstToAchievements = await checkFirstToAchievements(session.githubLogin, {
@@ -1089,54 +1200,13 @@ export default async function Home({ searchParams }) {
     totalCommits: commitStats.totalCommits,
   });
 
-  const allAchievements = [...secretAchievements, ...firstToAchievements];
-  // Rough placeholder percentile until we have real Code Wrapped user data to compare against
-  const streakPercentile = Math.min(
-    99,
-    Math.round((commitStats.longestStreak / 30) * 100)
-  );
+  const risingStarBadge = await checkRisingStar(session.githubLogin, commitStats.totalCommits, period);
 
-  const generatedDate = new Date().toLocaleDateString("en-US", {
-    year: "numeric",
-    month: "long",
-    day: "numeric",
-  });
-  const aiContent = await generateAIContent(
-    {
-      totalCommits: commitStats.totalCommits,
-      longestStreak: commitStats.longestStreak,
-      mostActiveWeekday: commitStats.mostActiveWeekday,
-      mostActiveHour: commitStats.mostActiveHour,
-      weekdayCommits: commitStats.weekdayCommits,
-      weekendCommits: commitStats.weekendCommits,
-      topLanguage: topLanguages[0]?.[0],
-      totalAdditions: commitStats.totalAdditions,
-      totalPRs: prStats.totalPRs,
-      totalDeletions: commitStats.totalDeletions,
-      mergedPRs: prStats.mergedPRs,
-      totalStars: totalStars,
-      avatarUrl: session.user.image,
-      totalRepos: totalRepos,
-      contributorsCount: commitStats.contributorsToYourRepos?.length || 0,
-      mostStarredRepo: mostStarred?.name || null,
-      weekdayCommits: commitStats.weekdayCommits,
-      weekendCommits: commitStats.weekendCommits,
-      topLanguages: topLanguages,
-      totalIssues: issueStats.totalIssues,
-      timeline: commitStats.timeline,
-      prTimeline: prStats.timeline,
-      mergedPRs: prStats.mergedPRs,
-      ownRepoPRs: prStats.ownRepoPRs,
-      otherRepoPRs: prStats.otherRepoPRs,
-      
-    },
-    session.githubLogin,
-    period,
-    commitStats.commitPersonality
-  );
-
-  const chapters = detectChapters(commitStats.sortedCommits, commitStats.commitsByRepo);
-  const namedChapters = await generateChapters(chapters, session.githubLogin, period);
+  const allAchievements = [
+    ...secretAchievements,
+    ...firstToAchievements,
+    ...(risingStarBadge ? [risingStarBadge] : []),
+  ];
 
   return (
     <div>
