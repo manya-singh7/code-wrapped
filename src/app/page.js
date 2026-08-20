@@ -877,6 +877,8 @@ async function getContributorLocations(contributorUsernames, accessToken) {
           }
         }
       }
+    } catch (err) {
+      console.log(`DEBUG profile fetch error for ${username}:`, err.message);
     }
   }
 
@@ -934,6 +936,7 @@ async function geocodeLocations(locations) {
       );
       if (res.ok) {
         const results = await res.json();
+        console.log(`DEBUG geocode results for "${loc.location}":`, results.length, results[0]?.display_name);
         if (results.length > 0) {
           geocoded.push({
             username: loc.username,
@@ -1050,7 +1053,8 @@ export default async function Home({ searchParams }) {
   const outgoingOwners = [];
   for (const repoName of commitStats.reposWhereIAmCollaborator || []) {
     const repo = allRepos.find((r) => r.name === repoName);
-    if (repo?.fork) {
+    console.log(`DEBUG checking outgoing owner for ${repoName}: fork=${repo?.fork}, owner=${repo?.owner?.login}`);
+        if (repo?.fork) {
       try {
         const detailRes = await fetch(
           `https://api.github.com/repos/${repo.full_name}`,
@@ -1062,6 +1066,8 @@ export default async function Home({ searchParams }) {
             outgoingOwners.push(fullDetail.parent.owner.login);
           }
         }
+      } catch (err) {
+        // skip silently
       }
     } else if (repo?.owner?.login) {
       outgoingOwners.push(repo.owner.login);
