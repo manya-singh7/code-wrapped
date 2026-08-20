@@ -456,6 +456,52 @@ function detectSecretAchievements(stats) {
   return achievements;
 }
 
+async function checkFirstToAchievements(username, stats) {
+  const achievements = [];
+
+  // Check: are you among the first 5 people to hit a 30+ day streak?
+  if (stats.longestStreak >= 30) {
+    const { data: longerStreaks } = await supabase
+      .from("wrapped_cache")
+      .select("github_username")
+      .gte("longest_streak", 30)
+      .neq("github_username", username)
+      .order("created_at", { ascending: true })
+      .limit(5);
+
+    const rank = (longerStreaks?.length || 0) + 1;
+    if (rank <= 5) {
+      achievements.push({
+        id: "streak_pioneer",
+        title: "🚀 Streak Pioneer",
+        description: `You're among the first ${rank <= 1 ? "" : `${rank} `}people to hit a 30-day streak on Code Wrapped.`,
+      });
+    }
+  }
+
+  // Check: are you among the first 5 people with 100+ commits?
+  if (stats.totalCommits >= 100) {
+    const { data: moreCommits } = await supabase
+      .from("wrapped_cache")
+      .select("github_username")
+      .gte("total_commits", 100)
+      .neq("github_username", username)
+      .order("created_at", { ascending: true })
+      .limit(5);
+
+    const rank = (moreCommits?.length || 0) + 1;
+    if (rank <= 5) {
+      achievements.push({
+        id: "century_pioneer",
+        title: "💯 Century Club Pioneer",
+        description: `You're among the first ${rank} people to hit 100 commits on Code Wrapped.`,
+      });
+    }
+  }
+
+  return achievements;
+}
+
 async function getCommitStats(accessToken, username, sinceDate, untilDate, timezone) {
   const headers = { Authorization: `Bearer ${accessToken}` };
 
@@ -1037,6 +1083,13 @@ export default async function Home({ searchParams }) {
     contributorsCount: commitStats.contributorsToYourRepos?.length || 0,
     topLanguagesCount: topLanguages.length,
   });
+
+  const firstToAchievements = await checkFirstToAchievements(session.githubLogin, {
+    longestStreak: commitStats.longestStreak,
+    totalCommits: commitStats.totalCommits,
+  });
+
+  const allAchievements = [...secretAchievements, ...firstToAchievements];
   // Rough placeholder percentile until we have real Code Wrapped user data to compare against
   const streakPercentile = Math.min(
     99,
@@ -1148,7 +1201,7 @@ export default async function Home({ searchParams }) {
         chapters={namedChapters}
         topRepos={topRepos}
         worldMapLocations={geocodedLocations}
-        secretAchievements={secretAchievements}
+        secretAchievements={allAchievements}
       />
 
       </div>
