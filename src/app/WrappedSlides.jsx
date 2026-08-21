@@ -19,6 +19,7 @@ export default function WrappedSlides({
   weekendCommits,
   topLanguages,
   mostStarred,
+  weeklySpotlight,
   totalRepos,
   totalStars,
   streakPercentile,
@@ -294,6 +295,33 @@ export default function WrappedSlides({
         </div>
       </section>
 
+            {/* Slide: Weekly Spotlight */}
+      {weeklySpotlight && (
+        <section className={`${slideBase} bg-gradient-to-br from-rose-600 to-pink-700 text-white`}>
+          <p className="text-sm uppercase tracking-wide mb-1 text-rose-100">This Week's Spotlight</p>
+          <p className="text-xs text-rose-200 mb-1">{weeklySpotlight.weekRange}</p>
+          <p className="text-xs text-rose-200 mb-6">Featuring: {weeklySpotlight.label}</p>
+
+          <div className="rounded-2xl border-2 border-white/30 bg-white/10 px-8 py-6 mb-6">
+            <p className="text-2xl font-bold mb-2">{weeklySpotlight.emoji} @{weeklySpotlight.winnerUsername}</p>
+            <p className="text-5xl font-bold mb-1">{weeklySpotlight.winnerValue}</p>
+            <p className="text-lg text-rose-100">{weeklySpotlight.unit}</p>
+          </div>
+
+          {weeklySpotlight.isMe ? (
+            <p className="text-sm font-medium bg-white/15 rounded-full px-4 py-2 inline-block mb-4">
+              That's you — currently #1! 🎉
+            </p>
+          ) : weeklySpotlight.myRank ? (
+            <p className="text-sm text-rose-200 mb-4">
+              You're ranked #{weeklySpotlight.myRank} out of {weeklySpotlight.totalUsers} tracked users
+            </p>
+          ) : null}
+
+          <p className="text-xs text-rose-300">Next week: {weeklySpotlight.nextCategory}</p>
+        </section>
+      )}
+      
       {/* Slide: Secret Achievements */}
       <section className={`${slideBase} bg-gradient-to-br from-amber-600 to-orange-700 text-white`}>
         <p className="text-sm uppercase tracking-wide mb-2 text-amber-100">Achievements Unlocked</p>

@@ -10,6 +10,75 @@ import DataDisclaimer from "./DataDisclaimer";
   // Parses an ISO date string like "2026-07-06T14:30:00+05:30"
 // and returns date/time components in the ORIGINAL commit's timezone,
 // not the server's local timezone.
+function getWeekKey() {
+  const now = new Date();
+  const year = now.getFullYear();
+  const firstDayOfYear = new Date(year, 0, 1);
+  const week = Math.ceil(((now - firstDayOfYear) / 86400000 + firstDayOfYear.getDay() + 1) / 7);
+  return `${year}-W${week}`;
+}
+
+function getWeekDateRange() {
+  const now = new Date();
+  const dayOfWeek = now.getDay();
+  const monday = new Date(now);
+  monday.setDate(now.getDate() - dayOfWeek + (dayOfWeek === 0 ? -6 : 1));
+  const sunday = new Date(monday);
+  sunday.setDate(monday.getDate() + 6);
+
+  const format = (d) => d.toLocaleDateString("en-US", { month: "short", day: "numeric" });
+  return `${format(monday)} – ${format(sunday)}`;
+}
+
+async function getWeeklySpotlight(username, currentStreak) {
+  const weekKey = getWeekKey();
+  const weekNumber = parseInt(weekKey.split("-W")[1]);
+  const categories = ["longest_streak", "most_collaborative", "most_commits"];
+  const category = categories[weekNumber % categories.length];
+
+  const columnMap = {
+    longest_streak: { column: "longest_streak", label: "Longest Streak", emoji: "🔥", unit: "days" },
+    most_collaborative: { column: "contributors_count", label: "Most Collaborative", emoji: "🤝", unit: "collaborators" },
+    most_commits: { column: "total_commits", label: "Most Commits", emoji: "💻", unit: "commits" },
+  };
+
+  const config = columnMap[category];
+
+  const { data: allRows } = await supabase
+    .from("wrapped_cache")
+    .select(`github_username, ${config.column}`)
+    .eq("period", "all")
+    .not(config.column, "is", null)
+    .order(config.column, { ascending: false });
+
+  if (!allRows || allRows.length === 0) return null;
+
+  const uniqueUsers = new Map();
+  allRows.forEach((row) => {
+    const val = row[config.column];
+    if (!uniqueUsers.has(row.github_username) || uniqueUsers.get(row.github_username) < val) {
+      uniqueUsers.set(row.github_username, val);
+    }
+  });
+
+  const ranked = Array.from(uniqueUsers.entries()).sort((a, b) => b[1] - a[1]);
+  const winner = ranked[0];
+  const myRank = ranked.findIndex(([name]) => name === username) + 1;
+
+  return {
+    category,
+    label: config.label,
+    emoji: config.emoji,
+    unit: config.unit,
+    winnerUsername: winner[0],
+    winnerValue: winner[1],
+    totalUsers: ranked.length,
+    myRank: myRank > 0 ? myRank : null,
+    isMe: winner[0] === username,
+    weekRange: getWeekDateRange(),
+    nextCategory: columnMap[categories[(weekNumber + 1) % categories.length]].label,
+  };
+}
 
 function parseCommitDate(isoString, timezone) {
   const utcDate = new Date(isoString);
@@ -1206,6 +1275,8 @@ export default async function Home({ searchParams }) {
     totalCommits: commitStats.totalCommits,
   });
 
+  const weeklySpotlight = await getWeeklySpotlight(session.githubLogin, commitStats.longestStreak);
+
   const risingStarBadge = await checkRisingStar(session.githubLogin, commitStats.totalCommits, period);
 
   const allAchievements = [
@@ -1278,6 +1349,7 @@ export default async function Home({ searchParams }) {
         topRepos={topRepos}
         worldMapLocations={geocodedLocations}
         secretAchievements={allAchievements}
+        weeklySpotlight={weeklySpotlight}
       />
 
       </div>
