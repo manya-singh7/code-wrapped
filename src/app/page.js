@@ -706,7 +706,7 @@ async function getCommitStats(accessToken, username, sinceDate, untilDate, timez
   /build\//,
 ];
 
-for (const commit of myCommits) {
+const detailPromises = myCommits.map(async (commit) => {
   const detailRes = await fetch(
     `https://api.github.com/repos/${repo.full_name}/commits/${commit.sha}`,
     { headers, cache: "no-store" }
@@ -729,14 +729,16 @@ for (const commit of myCommits) {
         }
       });
 
-      linesByDate.push({
-        parsed,
-        additions: realAdditions,
-        deletions: realDeletions,
-      });
+      return { parsed, additions: realAdditions, deletions: realDeletions };
     }
   }
-}
+  return null;
+});
+
+const detailResults = await Promise.all(detailPromises);
+detailResults.forEach((result) => {
+  if (result) linesByDate.push(result);
+});
 
         }
       }
@@ -1080,27 +1082,11 @@ export default async function Home({ searchParams }) {
     }
   }
 
-  const commitStats = await getCommitStats(
-    session.accessToken,
-    session.githubLogin,
-    sinceDate,
-    untilDate,
-    userTimezone
-  );
-
-  const prStats = await getPullRequestStats(
-    session.accessToken,
-    session.githubLogin,
-    sinceDate,
-    untilDate
-  );
-
-  const issueStats = await getIssueStats(
-    session.accessToken,
-    session.githubLogin,
-    sinceDate,
-    untilDate
-  );
+    const [commitStats, prStats, issueStats] = await Promise.all([
+    getCommitStats(session.accessToken, session.githubLogin, sinceDate, untilDate, userTimezone),
+    getPullRequestStats(session.accessToken, session.githubLogin, sinceDate, untilDate),
+    getIssueStats(session.accessToken, session.githubLogin, sinceDate, untilDate),
+  ]);
 
   const totalContributions =
     commitStats.totalCommits + prStats.totalPRs + issueStats.totalIssues;
