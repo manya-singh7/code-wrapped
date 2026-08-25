@@ -6,6 +6,8 @@ import { supabase } from "./supabaseClient";
 import TimezoneDetector from "./TimezoneDetector";
 import { cookies } from "next/headers";
 import DataDisclaimer from "./DataDisclaimer";
+import IntroWrapper from "./IntroWrapper";
+import IntroSequence from "./IntroSequence";
 
   // Parses an ISO date string like "2026-07-06T14:30:00+05:30"
 // and returns date/time components in the ORIGINAL commit's timezone,
@@ -1033,24 +1035,12 @@ export default async function Home({ searchParams }) {
   const session = await auth();
 
   if (!session) {
-    return (
-      <div className="flex min-h-screen flex-col items-center justify-center gap-6">
-        <h1 className="text-4xl font-bold">Code Wrapped 🎁</h1>
-        <form
-          action={async () => {
-            "use server";
-            await signIn("github");
-          }}
-        >
-          <button
-            type="submit"
-            className="rounded-full bg-black px-6 py-3 text-white"
-          >
-            Sign in with GitHub
-          </button>
-        </form>
-      </div>
-    );
+    async function handleSignIn() {
+      "use server";
+      await signIn("github");
+    }
+
+    return <IntroSequence signInAction={handleSignIn} />;
   }
 
   let sinceDate = null;
@@ -1272,6 +1262,7 @@ export default async function Home({ searchParams }) {
   ];
 
   return (
+    <IntroWrapper>
     <div>
       <TimezoneDetector />
       <div className="fixed top-0 left-0 right-0 z-50 flex flex-col items-center gap-2 bg-white/80 backdrop-blur-sm py-3">
@@ -1337,7 +1328,7 @@ export default async function Home({ searchParams }) {
         secretAchievements={allAchievements}
         weeklySpotlight={weeklySpotlight}
       />
-
       </div>
+      </IntroWrapper>
   );
 }
