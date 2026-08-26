@@ -8,6 +8,7 @@ import { useRouter, useSearchParams } from "next/navigation";
 export default function DateRangePicker() {
   const router = useRouter();
   const searchParams = useSearchParams();
+  const [isPending, startTransition] = useTransition();
   const currentPeriod = searchParams.get("period") || "all";
 
   const [selectedOption, setSelectedOption] = useState(currentPeriod);
@@ -18,20 +19,24 @@ export default function DateRangePicker() {
     setSelectedOption(value);
 
     if (value !== "custom") {
+    startTransition(() => {
       router.push(`?period=${value}`);
-    }
-  };
+    });
+  }
+};
 
   const applyRange = (selectedRange) => {
-    setRange(selectedRange);
-    if (selectedRange?.from && selectedRange?.to) {
-      const params = new URLSearchParams();
-      params.set("from", selectedRange.from.toISOString().split("T")[0]);
-      params.set("to", selectedRange.to.toISOString().split("T")[0]);
-      params.set("period", "custom");
+  setRange(selectedRange);
+  if (selectedRange?.from && selectedRange?.to) {
+    const params = new URLSearchParams();
+    params.set("from", selectedRange.from.toISOString().split("T")[0]);
+    params.set("to", selectedRange.to.toISOString().split("T")[0]);
+    params.set("period", "custom");
+    startTransition(() => {
       router.push(`?${params.toString()}`);
-    }
-  };
+    });
+  }
+};
 
   return (
     <div className="flex flex-col items-center gap-3">
@@ -49,6 +54,10 @@ export default function DateRangePicker() {
         <option value="lastyear">Last Year</option>
         <option value="custom">Custom Range</option>
       </select>
+
+      {isPending && (
+        <p className="text-xs text-zinc-400 mt-1">Loading...</p>
+      )}
 
       {selectedOption === "custom" && (
         <div className="rounded-2xl border border-zinc-200 bg-white p-4 shadow-sm">

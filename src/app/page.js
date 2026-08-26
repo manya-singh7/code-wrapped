@@ -12,6 +12,46 @@ import IntroSequence from "./IntroSequence";
   // Parses an ISO date string like "2026-07-06T14:30:00+05:30"
 // and returns date/time components in the ORIGINAL commit's timezone,
 // not the server's local timezone.
+
+function buildContributionHeatmap(timeline, sinceDate, untilDate) {
+  const commitsByDate = {};
+  (timeline || []).forEach((entry) => {
+    commitsByDate[entry.date] = entry.commits;
+  });
+
+  const endDate = untilDate ? new Date(untilDate) : new Date();
+  const startDate = sinceDate
+    ? new Date(sinceDate)
+    : (() => {
+        const d = new Date(endDate);
+        d.setDate(d.getDate() - 365); // fallback: ~24 weeks if "all time"
+        return d;
+      })();
+
+  // Align start to the most recent Sunday on/before startDate, so weeks line up like GitHub's grid
+  const alignedStart = new Date(startDate);
+  alignedStart.setDate(alignedStart.getDate() - alignedStart.getDay());
+
+  const days = [];
+  let cursor = new Date(alignedStart);
+  while (cursor <= endDate) {
+    const key = `${cursor.getFullYear()}-${String(cursor.getMonth() + 1).padStart(2, "0")}-${String(cursor.getDate()).padStart(2, "0")}`;
+    days.push({
+      date: key,
+      count: commitsByDate[key] || 0,
+    });
+    cursor.setDate(cursor.getDate() + 1);
+  }
+
+  // Group into weeks (columns of 7 days, Sun-Sat)
+  const weeks = [];
+  for (let i = 0; i < days.length; i += 7) {
+    weeks.push(days.slice(i, i + 7));
+  }
+
+  return weeks;
+}
+
 function getWeekKey() {
   const now = new Date();
   const year = now.getFullYear();
@@ -1086,6 +1126,8 @@ export default async function Home({ searchParams }) {
     getIssueStats(session.accessToken, session.githubLogin, sinceDate, untilDate),
   ]);
 
+  const contributionHeatmap = buildContributionHeatmap(commitStats.timeline, sinceDate, untilDate);
+
   const totalContributions =
     commitStats.totalCommits + prStats.totalPRs + issueStats.totalIssues;
 
@@ -1335,6 +1377,7 @@ export default async function Home({ searchParams }) {
         worldMapLocations={geocodedLocations}
         secretAchievements={allAchievements}
         weeklySpotlight={weeklySpotlight}
+        contributionHeatmap={contributionHeatmap}
       />
       </div>
       </IntroWrapper>

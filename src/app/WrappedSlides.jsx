@@ -4,6 +4,7 @@ import CollaborationChart from "./CollaborationChart";
 import PRTimelineChart from "./PRTimelineChart";
 import DataDisclaimer from "./DataDisclaimer";
 import WorldMap from "./WorldMap";
+import ContributionHeatmap from "./ContributionHeatmap";
 
 export default function WrappedSlides({
   name,
@@ -46,6 +47,7 @@ export default function WrappedSlides({
   totalContributions,
   topRepos,
   worldMapLocations,
+  contributionHeatmap,
 }) {
   const slideBase =
     "h-screen w-full flex flex-col items-center justify-center snap-start px-6 text-center";
@@ -184,6 +186,14 @@ export default function WrappedSlides({
         ) : (
           <p className="text-2xl">No languages yet</p>
         )}
+      </section>
+      
+            {/* Slide: Contribution Heatmap */}
+      <section className={`${slideBase} bg-zinc-900 text-white`}>
+        <p className="text-xl mb-6">Your Contribution Graph</p>
+        <div className="overflow-x-auto max-w-full px-4">
+          <ContributionHeatmap weeks={contributionHeatmap} />
+        </div>
       </section>
 
       {/* Slide : Repo Hall of Fame */}
