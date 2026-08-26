@@ -48,7 +48,7 @@ export default function WrappedSlides({
   topRepos,
   worldMapLocations,
   contributionHeatmap,
-  streakPercentileReal
+  overallPercentile
 }) {
   const slideBase =
     "h-screen w-full flex flex-col items-center justify-center snap-start px-6 text-center";
@@ -152,11 +152,14 @@ export default function WrappedSlides({
             Longest break: {longestGap} day{longestGap > 1 ? "s" : ""}
           </p>
         )}
-        {streakPercentileReal && (
-          <p className="mt-4 text-sm text-orange-100">
-            Top {streakPercentileReal.topPercent}% of {streakPercentileReal.totalUsers} Code Wrapped users
-          </p>
-        )}
+        {overallPercentile && (
+  <div className="mt-4 text-sm text-orange-100">
+    <p>Top {overallPercentile.topPercent}% overall of {overallPercentile.totalUsers} Code Wrapped users</p>
+    {overallPercentile.totalUsers >= 5 && (
+      <p className="mt-1">Ranked #{overallPercentile.rank}</p>
+    )}
+  </div>
+)}
       </section>
 
       {/* Slide : Active Day/Hour */}

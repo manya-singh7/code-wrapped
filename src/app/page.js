@@ -13,35 +13,74 @@ import IntroSequence from "./IntroSequence";
 // and returns date/time components in the ORIGINAL commit's timezone,
 // not the server's local timezone.
 
-async function calculatePercentile(username, metric, value) {
+async function calculateOverallPercentile(username, stats) {
   const { data: allUsers } = await supabase
     .from("wrapped_cache")
-    .select(`github_username, ${metric}`)
-    .eq("period", "all")
-    .not(metric, "is", null);
+    .select("github_username, longest_streak, total_commits, total_additions, contributors_count, total_repos, total_stars, total_prs, total_issues")
+    .eq("period", "all");
 
   if (!allUsers || allUsers.length < 2) {
-    return null; // not enough users for a meaningful percentile
+    return null;
   }
 
   const uniqueUsers = new Map();
   allUsers.forEach((row) => {
-    const val = row[metric];
-    if (!uniqueUsers.has(row.github_username) || uniqueUsers.get(row.github_username) < val) {
-      uniqueUsers.set(row.github_username, val);
-    }
+    uniqueUsers.set(row.github_username, row);
   });
 
-  const values = Array.from(uniqueUsers.values());
-  const totalUsers = values.length;
-  const usersBelow = values.filter((v) => v < value).length;
+  // Make sure the current user's live stats are included/updated in the comparison set
+  uniqueUsers.set(username, {
+    github_username: username,
+    longest_streak: stats.longestStreak,
+    total_commits: stats.totalCommits,
+    total_additions: stats.totalAdditions,
+    contributors_count: stats.contributorsCount,
+    total_repos: stats.totalRepos,
+    total_stars: stats.totalStars,
+    total_prs: stats.totalPRs,
+    total_issues: stats.totalIssues,
+  });
 
+  const users = Array.from(uniqueUsers.values());
+  const totalUsers = users.length;
+
+  const metricColumns = [
+    "longest_streak", "total_commits", "total_additions",
+    "contributors_count", "total_repos", "total_stars",
+  ];
+
+  // Find the max value for each metric, to normalize fairly (0-1 scale per metric)
+  const maxValues = {};
+  metricColumns.forEach((col) => {
+    maxValues[col] = Math.max(...users.map((u) => u[col] || 0), 1);
+  });
+
+  // Give each user one combined score (average of their normalized metrics + contributions)
+  const scored = users.map((u) => {
+    const normalizedSum = metricColumns.reduce(
+      (sum, col) => sum + (u[col] || 0) / maxValues[col],
+      0
+    );
+    const contributions = (u.total_commits || 0) + (u.total_prs || 0) + (u.total_issues || 0);
+    const maxContributions = Math.max(
+      ...users.map((x) => (x.total_commits || 0) + (x.total_prs || 0) + (x.total_issues || 0)),
+      1
+    );
+    const score = normalizedSum + contributions / maxContributions;
+    return { username: u.github_username, score };
+  });
+
+  // Rank everyone by their combined score
+  scored.sort((a, b) => b.score - a.score);
+  const myRank = scored.findIndex((u) => u.username === username) + 1;
+  const usersBelow = totalUsers - myRank;
   const percentile = Math.round((usersBelow / totalUsers) * 100);
 
   return {
     percentile,
-    totalUsers,
     topPercent: 100 - percentile,
+    totalUsers,
+    rank: myRank,
   };
 }
 
@@ -1160,8 +1199,6 @@ export default async function Home({ searchParams }) {
 
   const contributionHeatmap = buildContributionHeatmap(commitStats.timeline, sinceDate, untilDate);
 
-  const streakPercentileReal = await calculatePercentile(session.githubLogin, "longest_streak", commitStats.longestStreak);
-
   const totalContributions =
     commitStats.totalCommits + prStats.totalPRs + issueStats.totalIssues;
 
@@ -1246,6 +1283,17 @@ export default async function Home({ searchParams }) {
       iAmCollaboratorHere,
     };
   });
+
+  const overallPercentile = await calculateOverallPercentile(session.githubLogin, {
+  longestStreak: commitStats.longestStreak,
+  totalCommits: commitStats.totalCommits,
+  totalAdditions: commitStats.totalAdditions,
+  contributorsCount: commitStats.contributorsToYourRepos?.length || 0,
+  totalRepos: totalRepos,
+  totalStars: totalStars,
+  totalPRs: prStats.totalPRs,
+  totalIssues: issueStats.totalIssues,
+});
 
   const topRepos = scoredRepos
     .sort((a, b) => b.hallOfFameScore - a.hallOfFameScore)
@@ -1412,7 +1460,7 @@ export default async function Home({ searchParams }) {
         secretAchievements={allAchievements}
         weeklySpotlight={weeklySpotlight}
         contributionHeatmap={contributionHeatmap}
-        streakPercentileReal={streakPercentileReal}
+        overallPercentile={overallPercentile}
       />
       </div>
       </IntroWrapper>
