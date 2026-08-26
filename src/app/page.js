@@ -8,6 +8,7 @@ import { cookies } from "next/headers";
 import DataDisclaimer from "./DataDisclaimer";
 import IntroWrapper from "./IntroWrapper";
 import IntroSequence from "./IntroSequence";
+import StatsCard from "./StatsCard";
 
   // Parses an ISO date string like "2026-07-06T14:30:00+05:30"
 // and returns date/time components in the ORIGINAL commit's timezone,
@@ -1308,6 +1309,8 @@ export default async function Home({ searchParams }) {
   const topLanguages = Object.entries(languageCounts)
     .sort((a, b) => b[1] - a[1])
     .slice(0, 3);
+  
+  const topLanguagesString = topLanguages.map(([lang]) => lang).join(", ");
 
   const streakPercentile = Math.min(
     99,
@@ -1461,6 +1464,8 @@ export default async function Home({ searchParams }) {
         weeklySpotlight={weeklySpotlight}
         contributionHeatmap={contributionHeatmap}
         overallPercentile={overallPercentile}
+        topLanguagesString={topLanguagesString}
+        topRepoName={topRepos[0]?.name}
       />
       </div>
       </IntroWrapper>

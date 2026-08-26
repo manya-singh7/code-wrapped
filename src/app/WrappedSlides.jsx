@@ -5,10 +5,13 @@ import PRTimelineChart from "./PRTimelineChart";
 import DataDisclaimer from "./DataDisclaimer";
 import WorldMap from "./WorldMap";
 import ContributionHeatmap from "./ContributionHeatmap";
+import StatsCard from "./StatsCard";
 
 export default function WrappedSlides({
   name,
   avatarUrl,
+  topLanguagesString,
+  topRepoName,
   secretAchievements,
   chapters,
   totalCommits,
@@ -361,23 +364,30 @@ export default function WrappedSlides({
         </div>
       </section>
 
-      {/* Slide 9: Outro + Share Card */}
-      <section className={`${slideBase} bg-black text-white gap-6`}>
-        <p className="text-3xl font-bold">That's a wrap 🎁</p>
-        <p className="text-lg italic text-zinc-300 max-w-md">"{aiQuote}"</p>
-        <ShareCard
-          username={name}
-          avatarUrl={avatarUrl}
-          totalCommits={totalCommits}
-          longestStreak={longestStreak}
-          streakPercentile={streakPercentile}
-          topLanguage={topLanguages[0]?.[0]}
-          generatedDate={generatedDate}
-          totalPRs={totalPRs}
-          mergedPRs={mergedPRs}
-          contributorCount={contributorsToYourRepos?.length || 0}
-        />
-      </section>
+      {/* Slide: Outro + Share Cards */}
+      <section
+  className="w-full min-h-screen flex flex-col items-center justify-center bg-black text-white gap-4 snap-start"
+  style={{ paddingTop: "180px", paddingBottom: "24px", paddingLeft: "16px", paddingRight: "16px" }}
+>
+  <p className="text-2xl font-bold">That's a wrap 🎁</p>
+  <StatsCard
+    username={name}
+    avatarUrl={avatarUrl}
+    archetype={archetype}
+    longestStreak={longestStreak}
+    totalCommits={totalCommits}
+    totalAdditions={totalAdditions}
+    totalPRs={totalPRs}
+    mergedPRs={mergedPRs}
+    totalContributions={totalContributions}
+    contributorCount={contributorsToYourRepos?.length || 0}
+    topLanguages={topLanguagesString}
+    topRepoName={topRepoName}
+    overallPercentile={overallPercentile}
+    aiQuote={aiQuote}
+    generatedDate={generatedDate}
+  />
+</section>
     </div>
   );
 }
