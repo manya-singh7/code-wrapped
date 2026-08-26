@@ -48,6 +48,7 @@ export default function WrappedSlides({
   topRepos,
   worldMapLocations,
   contributionHeatmap,
+  streakPercentileReal
 }) {
   const slideBase =
     "h-screen w-full flex flex-col items-center justify-center snap-start px-6 text-center";
@@ -131,7 +132,7 @@ export default function WrappedSlides({
         <p className="text-xl mt-4">lines of code</p>
       </section>
 
-      {/* Slide 3: Longest Streak */}
+            {/* Slide 3: Longest Streak */}
       <section className={`${slideBase} bg-orange-500 text-white`}>
         <p className="text-xl mb-4">Your longest streak was</p>
         <p className="text-8xl font-bold">🔥 {longestStreak}</p>
@@ -149,6 +150,11 @@ export default function WrappedSlides({
         {longestGap > 0 && (
           <p className="mt-2 text-sm text-orange-100 max-w-xs">
             Longest break: {longestGap} day{longestGap > 1 ? "s" : ""}
+          </p>
+        )}
+        {streakPercentileReal && (
+          <p className="mt-4 text-sm text-orange-100">
+            Top {streakPercentileReal.topPercent}% of {streakPercentileReal.totalUsers} Code Wrapped users
           </p>
         )}
       </section>
@@ -187,7 +193,7 @@ export default function WrappedSlides({
           <p className="text-2xl">No languages yet</p>
         )}
       </section>
-      
+
             {/* Slide: Contribution Heatmap */}
       <section className={`${slideBase} bg-zinc-900 text-white`}>
         <p className="text-xl mb-6">Your Contribution Graph</p>

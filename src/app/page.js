@@ -13,6 +13,38 @@ import IntroSequence from "./IntroSequence";
 // and returns date/time components in the ORIGINAL commit's timezone,
 // not the server's local timezone.
 
+async function calculatePercentile(username, metric, value) {
+  const { data: allUsers } = await supabase
+    .from("wrapped_cache")
+    .select(`github_username, ${metric}`)
+    .eq("period", "all")
+    .not(metric, "is", null);
+
+  if (!allUsers || allUsers.length < 2) {
+    return null; // not enough users for a meaningful percentile
+  }
+
+  const uniqueUsers = new Map();
+  allUsers.forEach((row) => {
+    const val = row[metric];
+    if (!uniqueUsers.has(row.github_username) || uniqueUsers.get(row.github_username) < val) {
+      uniqueUsers.set(row.github_username, val);
+    }
+  });
+
+  const values = Array.from(uniqueUsers.values());
+  const totalUsers = values.length;
+  const usersBelow = values.filter((v) => v < value).length;
+
+  const percentile = Math.round((usersBelow / totalUsers) * 100);
+
+  return {
+    percentile,
+    totalUsers,
+    topPercent: 100 - percentile,
+  };
+}
+
 function buildContributionHeatmap(timeline, sinceDate, untilDate) {
   const commitsByDate = {};
   (timeline || []).forEach((entry) => {
@@ -1128,6 +1160,8 @@ export default async function Home({ searchParams }) {
 
   const contributionHeatmap = buildContributionHeatmap(commitStats.timeline, sinceDate, untilDate);
 
+  const streakPercentileReal = await calculatePercentile(session.githubLogin, "longest_streak", commitStats.longestStreak);
+
   const totalContributions =
     commitStats.totalCommits + prStats.totalPRs + issueStats.totalIssues;
 
@@ -1378,6 +1412,7 @@ export default async function Home({ searchParams }) {
         secretAchievements={allAchievements}
         weeklySpotlight={weeklySpotlight}
         contributionHeatmap={contributionHeatmap}
+        streakPercentileReal={streakPercentileReal}
       />
       </div>
       </IntroWrapper>
