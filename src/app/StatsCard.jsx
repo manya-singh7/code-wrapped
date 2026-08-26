@@ -18,6 +18,9 @@ export default function StatsCard({
   overallPercentile,
   aiQuote,
   generatedDate,
+  featuredBadge,
+  weeklySpotlightStatus,
+  heatmapWeeks,
 }) {
   const cardRef = useRef(null);
 
@@ -36,6 +39,9 @@ export default function StatsCard({
       link.click();
     }
   };
+
+  // Only use weeks that have a full 7 days, so the heatmap grid is a clean rectangle
+  const cleanWeeks = (heatmapWeeks || []).filter((week) => week.length === 7).slice(-10);
 
   return (
     <div style={{ width: "min(90vw, 480px)" }}>
@@ -110,10 +116,55 @@ export default function StatsCard({
           </div>
         )}
 
+        {(featuredBadge || weeklySpotlightStatus) && (
+          <div style={{ display: "flex", gap: "8px", marginBottom: "10px" }}>
+            {featuredBadge && (
+              <div style={{ background: "#FEF3C7", borderRadius: 14, padding: "8px 12px", flex: 1 }}>
+                <p style={{ fontSize: 10, fontWeight: 600, color: "#92400E", margin: 0 }}>
+                  {featuredBadge.title}
+                </p>
+              </div>
+            )}
+            {weeklySpotlightStatus && (
+              <div style={{ background: "#FCE7F3", borderRadius: 14, padding: "8px 12px", flex: 1 }}>
+                <p style={{ fontSize: 10, fontWeight: 600, color: "#9D174D", margin: 0 }}>
+                  {weeklySpotlightStatus}
+                </p>
+              </div>
+            )}
+          </div>
+        )}
+
         {aiQuote && (
           <p style={{ fontSize: 11, fontStyle: "italic", color: "#4A4A44", marginBottom: "10px", marginTop: 0 }}>
             "{aiQuote}"
           </p>
+        )}
+
+        {cleanWeeks.length > 0 && (
+          <div style={{ marginBottom: "10px", display: "flex", justifyContent: "center" }}>
+            <div style={{ display: "flex", gap: "2px" }}>
+              {cleanWeeks.map((week, wi) => (
+                <div key={wi} style={{ display: "flex", flexDirection: "column", gap: "2px" }}>
+                  {week.map((day, di) => (
+                    <div
+                      key={di}
+                      style={{
+                        width: 6,
+                        height: 6,
+                        borderRadius: 1,
+                        backgroundColor:
+                          day.count === 0 ? "#E5E5E0" :
+                          day.count === 1 ? "#B8E6C1" :
+                          day.count <= 3 ? "#5FD068" :
+                          "#2FA84A",
+                      }}
+                    />
+                  ))}
+                </div>
+              ))}
+            </div>
+          </div>
         )}
 
         <div style={{ borderTop: "1px solid #E5E5E0", paddingTop: "8px", display: "flex", justifyContent: "space-between", alignItems: "center" }}>

@@ -386,6 +386,9 @@ export default function WrappedSlides({
     overallPercentile={overallPercentile}
     aiQuote={aiQuote}
     generatedDate={generatedDate}
+    featuredBadge={secretAchievements?.[secretAchievements.length - 1]}
+weeklySpotlightStatus={weeklySpotlight?.isMe ? `🏆 #1 this week: ${weeklySpotlight.label}` : null}
+heatmapWeeks={contributionHeatmap}
   />
 </section>
     </div>
