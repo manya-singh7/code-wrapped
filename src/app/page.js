@@ -671,29 +671,37 @@ async function getCommitStats(accessToken, username, sinceDate, untilDate, timez
           (c) => c.author && c.author.login === username
         );
 
+                const isInRange = (dateStr) => {
+          const d = new Date(dateStr);
+          if (sinceDate && d < sinceDate) return false;
+          if (untilDate && d >= untilDate) return false;
+          return true;
+        };
+
+        const myCommitsInRange = myCommits.filter((c) => isInRange(c.commit.author.date));
+
         if (isMyOwnOriginalRepo) {
-          const othersCommits = commits.filter(
-            (c) => c.author && c.author.login !== username
+          const othersCommitsInRange = commits.filter(
+            (c) => c.author && c.author.login !== username && isInRange(c.commit.author.date)
           );
-          if (othersCommits.length > 0) {
+          if (othersCommitsInRange.length > 0) {
             const uniqueOthers = new Set();
-            othersCommits.forEach((c) => {
+            othersCommitsInRange.forEach((c) => {
               contributorsToYourRepos.add(c.author.login);
               uniqueOthers.add(c.author.login);
             });
             collaboratorsPerRepo[repo.name] = uniqueOthers.size;
           }
-        } else if (myCommits.length > 0) {
-          // This is a fork, and you personally committed to it — you're a collaborator here
+        } else if (myCommitsInRange.length > 0) {
           reposWhereIAmCollaborator.add(repo.name);
         }
 
-        if (myCommits.length > 0) {
-          commitsByRepo[repo.name] = myCommits.map((c) =>
+        if (myCommitsInRange.length > 0) {
+          commitsByRepo[repo.name] = myCommitsInRange.map((c) =>
             parseCommitDate(c.commit.author.date, timezone)
           ).filter(Boolean);
 
-          myCommits.forEach((c) => {
+          myCommitsInRange.forEach((c) => {
             allMessages.push(c.commit.message);
           });
 
@@ -708,7 +716,7 @@ async function getCommitStats(accessToken, username, sinceDate, untilDate, timez
   /build\//,
 ];
 
-const detailPromises = myCommits.map(async (commit) => {
+const detailPromises = myCommitsInRange.map(async (commit) => {
   const detailRes = await fetch(
     `https://api.github.com/repos/${repo.full_name}/commits/${commit.sha}`,
     { headers, cache: "no-store" }
