@@ -6,6 +6,7 @@ import DataDisclaimer from "./DataDisclaimer";
 import WorldMap from "./WorldMap";
 import ContributionHeatmap from "./ContributionHeatmap";
 import StatsCard from "./StatsCard";
+import VisualCard from "./VisualCard";
 
 export default function WrappedSlides({
   name,
@@ -390,6 +391,15 @@ export default function WrappedSlides({
 weeklySpotlightStatus={weeklySpotlight?.isMe ? `🏆 #1 this week: ${weeklySpotlight.label}` : null}
 heatmapWeeks={contributionHeatmap}
   />
+  <div style={{ marginTop: "24px" }}>
+  <VisualCard
+    username={name}
+    avatarUrl={avatarUrl}
+    heatmapWeeks={contributionHeatmap}
+    worldMapLocations={worldMapLocations}
+    generatedDate={generatedDate}
+  />
+</div>
 </section>
     </div>
   );
