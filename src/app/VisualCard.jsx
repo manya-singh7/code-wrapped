@@ -1,7 +1,7 @@
 "use client";
 
 import { useRef } from "react";
-import WorldMap from "./WorldMap";
+import WorldMapForCard from "./WorldMapForCard";
 
 export default function VisualCard({
   username,
@@ -54,7 +54,7 @@ export default function VisualCard({
         <div>
            <p style={{ fontSize: 13, color: "#8B96A5", marginBottom: "10px" }}>Your Global Collaboration</p>
            <div style={{ background: "#141922", borderRadius: 14, padding: "12px" }}>
-               <WorldMap locations={worldMapLocations} />
+               <WorldMapForCard locations={worldMapLocations} />
            </div>
         </div>
 

@@ -119,19 +119,19 @@ export default function StatsCard({
         {(featuredBadge || weeklySpotlightStatus) && (
           <div style={{ display: "flex", gap: "8px", marginBottom: "10px" }}>
             {featuredBadge && (
-               <div style={{ background: "#FEF3C7", borderRadius: 14, padding: "8px 12px", flex: 1, display: "flex", alignItems: "center", justifyContent: "center", minHeight: "36px" }}>
-               <p style={{ fontSize: 10, fontWeight: 600, color: "#92400E", margin: 0, textAlign: "center" }}>
-               {featuredBadge.title}
-               </p>
-               </div>
-            )}
-            {weeklySpotlightStatus && (
-               <div style={{ background: "#FCE7F3", borderRadius: 14, padding: "8px 12px", flex: 1, display: "flex", alignItems: "center", justifyContent: "center", minHeight: "36px" }}>
-                <p style={{ fontSize: 10, fontWeight: 600, color: "#9D174D", margin: 0, textAlign: "center" }}>
-                {weeklySpotlightStatus}
-                </p>
-                </div>
-            )}
+  <div style={{ background: "#FEF3C7", borderRadius: 14, padding: "8px 12px", flex: 1, display: "flex", alignItems: "center", justifyContent: "center", minHeight: "36px" }}>
+    <p style={{ fontSize: 10, fontWeight: 600, color: "#92400E", margin: 0, textAlign: "center" }}>
+      {featuredBadge.title}
+    </p>
+  </div>
+)}
+{weeklySpotlightStatus && (
+  <div style={{ background: "#FCE7F3", borderRadius: 14, padding: "8px 12px", flex: 1, display: "flex", alignItems: "center", justifyContent: "center", minHeight: "36px" }}>
+    <p style={{ fontSize: 10, fontWeight: 600, color: "#9D174D", margin: 0, textAlign: "center" }}>
+      {weeklySpotlightStatus}
+    </p>
+  </div>
+)}
           </div>
         )}
 
