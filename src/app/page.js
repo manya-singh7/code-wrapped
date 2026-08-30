@@ -407,7 +407,6 @@ Respond with ONLY the raw JSON object, no markdown code fences, no extra text.`;
       total_repos: stats.totalRepos,
       contributors_count: stats.contributorsCount,
       most_starred_repo: stats.mostStarredRepo,
-      topRepoNames: stats.topRepoNames,
       repo_context: stats.repoContext,
       is_public: true,
       weekday_commits: stats.weekdayCommits,
@@ -424,7 +423,7 @@ Respond with ONLY the raw JSON object, no markdown code fences, no extra text.`;
     });
 
     if (insertError) {
-      console.error("Supabase insert failed:", insertError);
+      console.error("Supabase insert failed:", JSON.stringify(insertError, null, 2));
     } else {
       console.log("Supabase insert succeeded for", username, period);
     }
