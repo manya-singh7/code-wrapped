@@ -77,6 +77,7 @@ export default async function PublicProfile({ params }) {
       totalIssues={cached.total_issues || 0}
       totalContributions={cached.total_commits + cached.total_prs + (cached.total_issues || 0)}
       chapters={chapters}
+      worldMapLocations={cached.world_map_locations || []}
     />
   );
 }
