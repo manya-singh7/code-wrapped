@@ -357,7 +357,7 @@ const cached = cachedRows?.[0] || null;
     const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
     const model = genAI.getGenerativeModel({ model: "gemini-3.1-flash-lite" });
 
-    const prompt = `Based on these coding stats, generate a JSON object with exactly these 5 fields: "story" (2-3 warm, personal sentences about their coding year, no markdown), "roast" (1-2 savage, witty, playfully brutal sentences roasting a coding habit visible in the stats — think stand-up comedian energy or Chandler from friends energy or anyone funny and cool. Be specific and clever, not generic. And don't drop huge words/terms just to sound cool. Don't sound lame.), "hype" (1-2 sentences, professional LinkedIn-style hype about their achievement), "quote" (one short, memorable, quotable sentence summarizing their year), "archetype" (a 2-4 word developer personality label, like "Night Owl Builder" or "Consistency King", based on the stats).
+    const prompt = `Based on these coding stats, generate a JSON object with exactly these 5 fields: "story" (4-5 warm, personal sentences about their coding year, no markdown, impressive observation that makes users gain a new perspective or amazes them that wow how did AI figure this out, pick 2-4 aspects to talk about. not just the repo. a smart analysis story)), "roast" (1-2 savage, witty, playfully brutal sentences roasting a coding habit visible in the stats — think stand-up comedian energy or Chandler from friends energy or anyone funny and cool. Be specific and clever, not generic. And don't drop huge words/terms just to sound cool. Don't sound lame. Don't sound cringe.), "hype" (1-2 sentences, professional LinkedIn-style hype about their achievement, deep inspection and understanding, don't just talk about 1 aspect that is the repos, talk about something else also you hae so much data about the person's github, look deeply talk about whatever is interesting, you ahve so much data about the prs, the contributors, contributions, lines of code, commits, commit messages, time, etc etc. use whatever u want to but choose the best), "quote" (one short, memorable, quotable, wise sentence summarizing their year), "archetype" (a 2-4 word developer personality label, like "Night Owl Builder" or "Consistency King", based on the stats).
 
 Stats:
 - Total commits: ${stats.totalCommits}
@@ -367,6 +367,10 @@ Stats:
 - Weekday commits: ${stats.weekdayCommits}, Weekend commits: ${stats.weekendCommits}
 - Top language: ${stats.topLanguage || "varied"}
 - Lines added: ${stats.totalAdditions}
+- PRs opened: ${stats.totalPRs || 0}, merged: ${stats.mergedPRs || 0}
+- Collaborators: ${stats.contributorsCount || 0} people contributed to their work
+- Top repos worked on: ${stats.topRepoNames || "various projects"}
+${stats.repoContext && stats.repoContext.length > 0 ? `- Recent/notable projects: ${stats.repoContext.map((r) => `${r.name} (${r.summary})`).join("; ")}` : ""}
 
 Respond with ONLY the raw JSON object, no markdown code fences, no extra text.`;
 
@@ -403,6 +407,8 @@ Respond with ONLY the raw JSON object, no markdown code fences, no extra text.`;
       total_repos: stats.totalRepos,
       contributors_count: stats.contributorsCount,
       most_starred_repo: stats.mostStarredRepo,
+      topRepoNames: stats.topRepoNames,
+      repo_context: stats.repoContext,
       is_public: true,
       weekday_commits: stats.weekdayCommits,
       weekend_commits: stats.weekendCommits,
@@ -553,6 +559,75 @@ function detectChapters(sortedCommits, commitsByRepo) {
   }
 
   return chapters;
+}
+
+function getRecentlyActiveRepos(commitsByRepo, days = 14) {
+  const cutoff = new Date();
+  cutoff.setDate(cutoff.getDate() - days);
+
+  const activeRepos = [];
+  Object.entries(commitsByRepo || {}).forEach(([repoName, dates]) => {
+    const hasRecentCommit = dates.some((d) => d.utcDateForCompare >= cutoff);
+    if (hasRecentCommit) activeRepos.push(repoName);
+  });
+
+  return activeRepos;
+}
+
+async function getRepoDescription(repoFullName, accessToken) {
+  const headers = { Authorization: `Bearer ${accessToken}` };
+  try {
+    const res = await fetch(
+      `https://api.github.com/repos/${repoFullName}/readme`,
+      { headers, cache: "no-store" }
+    );
+    if (res.ok) {
+      const data = await res.json();
+      const decoded = Buffer.from(data.content, "base64").toString("utf-8");
+
+      const lines = decoded.split("\n");
+      const meaningfulLines = lines.filter((line) => {
+        const trimmed = line.trim();
+        if (trimmed.length === 0) return false;
+        if (trimmed.startsWith("#")) return false; // headings/titles
+        if (trimmed.startsWith("![")) return false; // images
+        if (trimmed.startsWith("[![")) return false; // badges
+        if (trimmed.startsWith("<")) return false; // HTML tags
+        if (/^\[.*\]\(.*\)$/.test(trimmed)) return false; // standalone links
+        return true;
+      });
+
+      const description = meaningfulLines.slice(0, 3).join(" ").trim();
+      return description.length > 20 ? description.slice(0, 600) : null;
+    }
+  } catch (err) {
+    // no README, skip silently
+  }
+  return null;
+}
+
+async function getRepoContextSummaries(topRepos, recentlyActiveRepoNames, allRepos, accessToken) {
+  const reposToDescribe = new Map();
+
+  (topRepos || []).slice(0, 2).forEach((r) => {
+    reposToDescribe.set(r.name, r.full_name);
+  });
+
+  (recentlyActiveRepoNames || []).slice(0, 2).forEach((name) => {
+    if (!reposToDescribe.has(name)) {
+      const repo = allRepos.find((r) => r.name === name);
+      if (repo) reposToDescribe.set(name, repo.full_name);
+    }
+  });
+
+  const summaries = await Promise.all(
+    Array.from(reposToDescribe.entries()).map(async ([name, fullName]) => {
+      const readme = await getRepoDescription(fullName, accessToken);
+      return readme ? { name, summary: readme } : null;
+    })
+  );
+
+  return summaries.filter(Boolean);
 }
 
 function detectSecretAchievements(stats) {
@@ -1306,6 +1381,9 @@ export default async function Home({ searchParams }) {
     .sort((a, b) => b.hallOfFameScore - a.hallOfFameScore)
     .slice(0, 3);
 
+  const recentlyActiveRepoNames = getRecentlyActiveRepos(commitStats.commitsByRepo, 14);
+  const repoContextSummaries = await getRepoContextSummaries(topRepos, recentlyActiveRepoNames, allRepos, session.accessToken);
+
       const languageCounts = {};
   relevantRepos.forEach((r) => {
     if (r.language) {
@@ -1358,7 +1436,8 @@ export default async function Home({ searchParams }) {
         ownRepoPRs: prStats.ownRepoPRs,
         otherRepoPRs: prStats.otherRepoPRs,
         topRepos: topRepos,
-        worldMapLocations: geocodedLocations,
+        topRepoNames: topRepos?.slice(0, 3).map((r) => r.name).join(", "),
+        repoContext: repoContextSummaries,
       },
       session.githubLogin,
       period,
