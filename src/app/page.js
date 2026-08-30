@@ -753,15 +753,11 @@ async function checkFirstToAchievements(username, stats) {
   return achievements;
 }
 
-async function getCommitStats(accessToken, username, sinceDate, untilDate, timezone) {
+async function getCommitStats(accessToken, username, sinceDate, untilDate, timezone, allRepos) {
   const headers = { Authorization: `Bearer ${accessToken}` };
 
-  const reposRes = await fetch(
-    "https://api.github.com/user/repos?per_page=100",
-    { headers, cache: "no-store" }
-  );
-  const allRepos = await reposRes.json();
   const ownRepos = allRepos;
+
   let commitsByRepo = {};
   let linesByDate = [];
   let allMessages = [];
@@ -1192,8 +1188,10 @@ export default async function Home({ searchParams }) {
     }
   }
 
+  const allRepos = await getRepos(session.accessToken);
+
     const [commitStats, prStats, issueStats] = await Promise.all([
-    getCommitStats(session.accessToken, session.githubLogin, sinceDate, untilDate, userTimezone),
+    getCommitStats(session.accessToken, session.githubLogin, sinceDate, untilDate, userTimezone, allRepos),
     getPullRequestStats(session.accessToken, session.githubLogin, sinceDate, untilDate),
     getIssueStats(session.accessToken, session.githubLogin, sinceDate, untilDate),
   ]);
@@ -1203,7 +1201,6 @@ export default async function Home({ searchParams }) {
   const totalContributions =
     commitStats.totalCommits + prStats.totalPRs + issueStats.totalIssues;
 
-  const allRepos = await getRepos(session.accessToken);
   const relevantRepos =
     commitStats.touchedRepos.length > 0
       ? allRepos.filter((r) => commitStats.touchedRepos.includes(r.name))
@@ -1323,38 +1320,40 @@ export default async function Home({ searchParams }) {
     day: "numeric",
   });
 
-  const aiContent = await generateAIContent(
-    {
-      totalCommits: commitStats.totalCommits,
-      longestStreak: commitStats.longestStreak,
-      mostActiveWeekday: commitStats.mostActiveWeekday,
-      mostActiveHour: commitStats.mostActiveHour,
-      weekdayCommits: commitStats.weekdayCommits,
-      weekendCommits: commitStats.weekendCommits,
-      topLanguage: topLanguages[0]?.[0],
-      topLanguages: topLanguages,
-      totalAdditions: commitStats.totalAdditions,
-      totalDeletions: commitStats.totalDeletions,
-      totalPRs: prStats.totalPRs,
-      mergedPRs: prStats.mergedPRs,
-      totalStars: totalStars,
-      avatarUrl: session.user.image,
-      totalRepos: totalRepos,
-      contributorsCount: commitStats.contributorsToYourRepos?.length || 0,
-      mostStarredRepo: mostStarred?.name || null,
-      totalIssues: issueStats.totalIssues,
-      timeline: commitStats.timeline,
-      prTimeline: prStats.timeline,
-      ownRepoPRs: prStats.ownRepoPRs,
-      otherRepoPRs: prStats.otherRepoPRs,
-    },
-    session.githubLogin,
-    period,
-    commitStats.commitPersonality
-  );
-
   const chapters = detectChapters(commitStats.sortedCommits, commitStats.commitsByRepo);
-  const namedChapters = await generateChapters(chapters, session.githubLogin, period);
+
+  const [aiContent, namedChapters] = await Promise.all([
+    generateAIContent(
+      {
+        totalCommits: commitStats.totalCommits,
+        longestStreak: commitStats.longestStreak,
+        mostActiveWeekday: commitStats.mostActiveWeekday,
+        mostActiveHour: commitStats.mostActiveHour,
+        weekdayCommits: commitStats.weekdayCommits,
+        weekendCommits: commitStats.weekendCommits,
+        topLanguage: topLanguages[0]?.[0],
+        topLanguages: topLanguages,
+        totalAdditions: commitStats.totalAdditions,
+        totalDeletions: commitStats.totalDeletions,
+        totalPRs: prStats.totalPRs,
+        mergedPRs: prStats.mergedPRs,
+        totalStars: totalStars,
+        avatarUrl: session.user.image,
+        totalRepos: totalRepos,
+        contributorsCount: commitStats.contributorsToYourRepos?.length || 0,
+        mostStarredRepo: mostStarred?.name || null,
+        totalIssues: issueStats.totalIssues,
+        timeline: commitStats.timeline,
+        prTimeline: prStats.timeline,
+        ownRepoPRs: prStats.ownRepoPRs,
+        otherRepoPRs: prStats.otherRepoPRs,
+      },
+      session.githubLogin,
+      period,
+      commitStats.commitPersonality
+    ),
+    generateChapters(chapters, session.githubLogin, period),
+  ]);
 
     const uniqueCountries = new Set(
     geocodedLocations.map((loc) => loc.location.split(",").pop().trim())
@@ -1381,14 +1380,14 @@ export default async function Home({ searchParams }) {
       topRepos[0].collaboratorCount > 0,
   });
 
-  const firstToAchievements = await checkFirstToAchievements(session.githubLogin, {
-    longestStreak: commitStats.longestStreak,
-    totalCommits: commitStats.totalCommits,
-  });
-
-  const weeklySpotlight = await getWeeklySpotlight(session.githubLogin, commitStats.longestStreak);
-
-  const risingStarBadge = await checkRisingStar(session.githubLogin, commitStats.totalCommits, period);
+  const [firstToAchievements, weeklySpotlight, risingStarBadge] = await Promise.all([
+    checkFirstToAchievements(session.githubLogin, {
+      longestStreak: commitStats.longestStreak,
+      totalCommits: commitStats.totalCommits,
+    }),
+    getWeeklySpotlight(session.githubLogin, commitStats.longestStreak),
+    checkRisingStar(session.githubLogin, commitStats.totalCommits, period),
+  ]);
 
   const allAchievements = [
     ...secretAchievements,
