@@ -325,12 +325,15 @@ async function generateAIContent(stats, username, period, commitPersonality) {
   };
 
   // 1. Check cache first — but only trust it if commit count still matches
-  const { data: cached } = await supabase
-    .from("wrapped_cache")
-    .select("*")
-    .eq("github_username", username)
-    .eq("period", period)
-    .maybeSingle();
+  const { data: cachedRows } = await supabase
+  .from("wrapped_cache")
+  .select("*")
+  .eq("github_username", username)
+  .eq("period", period)
+  .order("created_at", { ascending: false })
+  .limit(1);
+
+const cached = cachedRows?.[0] || null;
 
   if (cached && cached.commit_count_snapshot === stats.totalCommits) {
     return {
@@ -342,14 +345,12 @@ async function generateAIContent(stats, username, period, commitPersonality) {
     };
   }
 
-  // If stale (commit count changed) or doesn't exist, delete old entry first
-  if (cached) {
-    await supabase
-      .from("wrapped_cache")
-      .delete()
-      .eq("github_username", username)
-      .eq("period", period);
-  }
+  // Always clear any existing rows before inserting fresh data (handles duplicates safely)
+   await supabase
+  .from("wrapped_cache")
+  .delete()
+  .eq("github_username", username)
+  .eq("period", period);
   
   // 2. Not cached — generate fresh
   try {
@@ -432,12 +433,15 @@ Respond with ONLY the raw JSON object, no markdown code fences, no extra text.`;
 async function generateChapters(chapters, username, period) {
   if (chapters.length === 0) return [];
 
-  const { data: cached } = await supabase
+  const { data: cachedRows } = await supabase
     .from("chapters_cache")
     .select("*")
     .eq("github_username", username)
     .eq("period", period)
-    .maybeSingle();
+    .order("created_at", { ascending: false })
+    .limit(1);
+
+  const cached = cachedRows?.[0] || null;
 
   if (cached) {
     return cached.chapters;
@@ -465,6 +469,12 @@ ${chapterDescriptions}`;
       title: titles[i]?.title || `Chapter ${i + 1}`,
       description: titles[i]?.description || "",
     }));
+    
+    await supabase
+  .from("chapters_cache")
+  .delete()
+  .eq("github_username", username)
+  .eq("period", period);
 
     await supabase.from("chapters_cache").insert({
       github_username: username,
