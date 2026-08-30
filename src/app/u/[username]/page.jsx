@@ -1,5 +1,6 @@
 import { supabase } from "../../supabaseClient";
 import WrappedSlides from "../../WrappedSlides";
+import { buildContributionHeatmap } from "../../page";
 
 export default async function PublicProfile({ params }) {
   const { username } = await params;
@@ -78,6 +79,9 @@ export default async function PublicProfile({ params }) {
       totalContributions={cached.total_commits + cached.total_prs + (cached.total_issues || 0)}
       chapters={chapters}
       worldMapLocations={cached.world_map_locations || []}
+      topRepos={cached.top_repos || []}
+      secretAchievements={cached.achievements || []}
+      contributionHeatmap={buildContributionHeatmap(cached.commit_timeline || [], null, null)}
     />
   );
 }

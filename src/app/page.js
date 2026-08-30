@@ -85,7 +85,7 @@ async function calculateOverallPercentile(username, stats) {
   };
 }
 
-function buildContributionHeatmap(timeline, sinceDate, untilDate) {
+export function buildContributionHeatmap(timeline, sinceDate, untilDate) {
   const commitsByDate = {};
   (timeline || []).forEach((entry) => {
     commitsByDate[entry.date] = entry.commits;
@@ -413,9 +413,7 @@ Respond with ONLY the raw JSON object, no markdown code fences, no extra text.`;
       own_repo_prs: stats.ownRepoPRs,
       other_repo_prs: stats.otherRepoPRs,
       merged_prs: stats.mergedPRs,
-      own_repo_prs: stats.ownRepoPRs,
-      other_repo_prs: stats.otherRepoPRs,
-      
+      top_repos: stats.topRepos,
     });
 
     if (insertError) {
@@ -1349,6 +1347,8 @@ export default async function Home({ searchParams }) {
         worldMapLocations: geocodedLocations,
         ownRepoPRs: prStats.ownRepoPRs,
         otherRepoPRs: prStats.otherRepoPRs,
+        topRepos: topRepos,
+        worldMapLocations: geocodedLocations,
       },
       session.githubLogin,
       period,
@@ -1396,6 +1396,19 @@ export default async function Home({ searchParams }) {
     ...firstToAchievements,
     ...(risingStarBadge ? [risingStarBadge] : []),
   ];
+
+  const { error: updateError, data: updateData } = await supabase
+  .from("wrapped_cache")
+  .update({
+    top_repos: topRepos,
+    achievements: allAchievements,
+  })
+  .eq("github_username", session.githubLogin)
+  .eq("period", period)
+  .select();
+
+console.log("DEBUG update error:", updateError);
+console.log("DEBUG update result:", updateData);
 
   return (
     <IntroWrapper>
